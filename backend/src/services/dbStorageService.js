@@ -70,6 +70,8 @@ async function saveChatInteraction({
   hintLevel = 1,
   lessonId = null,
   courseId = null,
+  lessonTitle = null,
+  language = 'Python',
   currentCode = '',
 }) {
   if (!isDbConfigured()) return null;
@@ -89,10 +91,21 @@ async function saveChatInteraction({
       activeSession = await prisma.chatSession.findUnique({ where: { id: sessionId } });
     }
 
+    // Reuse session matching lesson title if no explicit sessionId passed
+    if (!activeSession && lessonTitle) {
+      activeSession = await prisma.chatSession.findFirst({
+        where: {
+          userId: activeUser.id,
+          title: lessonTitle,
+        },
+        orderBy: { lastMessageAt: 'desc' },
+      });
+    }
+
     if (!activeSession) {
       let validCourseId = courseId;
       if (!validCourseId) {
-        const defaultCourse = await getOrCreateDefaultCourse();
+        const defaultCourse = await getOrCreateDefaultCourse(language);
         validCourseId = defaultCourse.id;
       }
 
@@ -102,7 +115,7 @@ async function saveChatInteraction({
           userId: activeUser.id,
           courseId: validCourseId,
           lessonId: lessonId || null,
-          title: userPrompt ? userPrompt.slice(0, 50).trim() : 'Tutor Session',
+          title: lessonTitle || (userPrompt ? userPrompt.slice(0, 50).trim() : 'Tutor Session'),
           lastMessageAt: new Date(),
         },
       });
@@ -309,6 +322,49 @@ async function saveRoadmap({ title, language, concepts = [] }) {
   }
 }
 
+/**
+ * Retrieves chat message history for a given session ID
+ */
+async function getChatHistory(sessionId) {
+  if (!isDbConfigured() || !sessionId) return [];
+  try {
+    return await prisma.chatMessage.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'asc' },
+    });
+  } catch (err) {
+    console.warn('[DB] getChatHistory error:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Lists all chat sessions for a user (or default user)
+ */
+async function listUserChatSessions(userId = null) {
+  if (!isDbConfigured()) return [];
+  try {
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const defaultUser = await getOrCreateDefaultUser();
+      targetUserId = defaultUser?.id;
+    }
+    if (!targetUserId) return [];
+
+    return await prisma.chatSession.findMany({
+      where: { userId: targetUserId },
+      orderBy: { lastMessageAt: 'desc' },
+      include: {
+        course: { select: { id: true, title: true, language: true } },
+        _count: { select: { messages: true } },
+      },
+    });
+  } catch (err) {
+    console.warn('[DB] listUserChatSessions error:', err.message);
+    return [];
+  }
+}
+
 module.exports = {
   isDbConfigured,
   getOrCreateDefaultUser,
@@ -316,4 +372,6 @@ module.exports = {
   saveChatInteraction,
   saveCodeSubmission,
   saveRoadmap,
+  getChatHistory,
+  listUserChatSessions,
 };

@@ -115,7 +115,8 @@ The response must adhere to this exact schema:
   "microMcq": {
     "question": "Quick question testing the core misconception",
     "options": ["Option A", "Option B", "Option C"],
-    "correctIndex": 0
+    "correctIndex": 0,
+    "explanation": "Brief 1-sentence explanation of why the correct option is right"
   },
   "fix": {},
   "nextStep": {
@@ -231,6 +232,9 @@ function sanitizeChatOutput(parsed, rawReply) {
               question: String(parsed.microMcq.question),
               options: parsed.microMcq.options.map(String),
               correctIndex: Number(parsed.microMcq.correctIndex || 0),
+              explanation: parsed.microMcq.explanation
+                ? String(parsed.microMcq.explanation)
+                : 'Reviewing this concept helps solidify your mental model!',
             }
           : null,
       fix: parsed.fix && typeof parsed.fix === 'object' && Object.keys(parsed.fix).length > 0 ? parsed.fix : null,

@@ -62,13 +62,15 @@ router.post('/chat', async (req, res) => {
     try {
       storedSession = await dbStorageService.saveChatInteraction({
         userId: req.body.userId,
-        sessionId: req.body.sessionId,
+        sessionId: req.body.sessionId || req.body.chatId,
         userPrompt: prompt,
         assistantResponse: tutorResult,
         hintLevel: Number(hintLevel) || 1,
         courseId: req.body.courseId,
         lessonId: req.body.lessonId,
-        metadata: { language, currentCode: currentCode ? currentCode.slice(0, 500) : '' },
+        lessonTitle: lesson,
+        language,
+        currentCode,
       });
     } catch (saveErr) {
       console.warn('Chat persistence warning:', saveErr.message);
@@ -86,6 +88,32 @@ router.post('/chat', async (req, res) => {
       error: 'Failed to generate Socratic tutor response.',
       details: err.message,
     });
+  }
+});
+
+/**
+ * GET /api/ai/sessions
+ * Returns stored chat sessions
+ */
+router.get('/sessions', async (req, res) => {
+  try {
+    const sessions = await dbStorageService.listUserChatSessions(req.query.userId || null);
+    return res.json({ success: true, data: sessions });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/ai/history/:sessionId
+ * Returns message history for a given chat session
+ */
+router.get('/history/:sessionId', async (req, res) => {
+  try {
+    const messages = await dbStorageService.getChatHistory(req.params.sessionId);
+    return res.json({ success: true, data: messages });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
