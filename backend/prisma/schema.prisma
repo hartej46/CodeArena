@@ -1,7 +1,430 @@
+// ==============================================================================
+// CodeArena - Prisma Schema
+// Unified Multi-Language Socratic AI Coding & Learning Platform
+// Powered by Google Gemma Ecosystem (Gemma 4, FunctionGemma, EmbeddingGemma)
+// ==============================================================================
+
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pgvector(map: "vector")]
+}
+
+// ------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------
+
+enum UserRole {
+  STUDENT
+  MENTOR
+  ADMIN
+}
+
+enum ProgrammingLanguage {
+  PYTHON
+  JAVASCRIPT
+  TYPESCRIPT
+  CPP
+  JAVA
+  GO
+  RUST
+}
+
+enum ProblemDifficulty {
+  BEGINNER
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SubmissionStatus {
+  PENDING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILE_ERROR
+}
+
+enum AiInteractionType {
+  SOCRATIC_HINT      // Step-by-step guided questions (Level 1-3)
+  CODE_AUTOPSY       // Deep error diagnosis & mental model breakdown
+  FLASHCARD_GEN      // "Aha!" micro-lesson flashcard generation
+  DIAGNOSTIC_EVAL    // Evaluating baseline & mastery across languages
+  FUNCTION_CALL      // FunctionGemma tool calling (test execution, linter check)
+  EMBEDDING_GEN      // EmbeddingGemma vector creation for semantic retrieval
+}
+
+enum GemmaExecutionProvider {
+  OLLAMA_LOCAL       // Local Ollama instance (gemma:4b, gemma2:9b)
+  BROWSER_WEBGPU     // Client-side execution via Transformers.js / WebGPU
+  GOOGLE_VERTEX_AI   // Google Cloud Vertex AI / Cloud Run endpoint
+  GEMINI_API         // Google AI Studio Gemma / Gemini proxy
+  CUSTOM_ENDPOINT    // Self-hosted vLLM or TGI cluster
+}
+
+enum ErrorCategory {
+  SYNTAX             // Missing colons, semi-colons, brackets, type mismatches
+  LOGIC              // Off-by-one, inverted conditions, infinite loops
+  MEMORY             // Buffer overflow, memory leak, null-pointer / segfault
+  EDGE_CASE          // Empty array, integer overflow, 0/negative division
+  TIME_COMPLEXITY    // O(N^2) instead of O(N log N)
+}
+
+enum RagEntityType {
+  PROBLEM
+  BUG_AUTOPSY
+  AHA_FLASHCARD
+  DOCUMENTATION_CHUNK
+  USER_CODE_SNIPPET
+}
+
+// ------------------------------------------------------------------------------
+// 1. USERS & AUTHENTICATION
+// ------------------------------------------------------------------------------
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  username           String    @unique
+  passwordHash       String?   // Optional if using OAuth (Google / GitHub)
+  avatarUrl          String?
+  role               UserRole  @default(STUDENT)
+
+  // Socratic Learning & Gamification Metrics
+  streakDays         Int       @default(0)
+  longestStreak      Int       @default(0)
+  totalSolved        Int       @default(0)
+  selfRelianceScore  Float     @default(100.0) // 0-100% Socratic reliance
+  lastActiveAt       DateTime  @default(now())
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  languageProfiles   UserLanguageProfile[]
+  submissions        Submission[]
+  aiInteractions     AiInteractionLog[]
+  socraticHints      SocraticHintLog[]
+  bugAutopsies       BugAutopsy[]
+  flashcards         AhaFlashcard[]
+  authoredProblems   Problem[]             @relation("AuthoredProblems")
+
+  @@index([email])
+  @@index([username])
+  @@index([streakDays])
+}
+
+// ------------------------------------------------------------------------------
+// 2. MULTI-LANGUAGE DIAGNOSTIC & MASTERY PROFILES
+// ------------------------------------------------------------------------------
+
+model UserLanguageProfile {
+  id                    String              @id @default(uuid())
+  userId                String
+  language              ProgrammingLanguage
+
+  // Diagnostic baseline (e.g. 70% from initial test) vs active mastery score
+  baselineScore         Float               @default(0.0)
+  masteryScore          Float               @default(0.0) // Continuous skill rating (0-100%)
+  totalSolvedInLang     Int                 @default(0)
+
+  // Language Breakdown Scores
+  logicProficiency      Float               @default(50.0) // Language-agnostic logic
+  syntaxProficiency     Float               @default(50.0) // Language-specific idioms & syntax
+
+  // Weak/Strong concept tracking (e.g. ["pointers", "recursion", "dynamic_programming"])
+  weakAreas             Json                @default("[]")
+  strongAreas           Json                @default("[]")
+
+  lastEvaluatedAt       DateTime            @default(now())
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, language])
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------------------
+// 3. PROBLEMS & TEST SUITES
+// ------------------------------------------------------------------------------
+
+model Problem {
+  id               String            @id @default(uuid())
+  title            String
+  slug             String            @unique
+  description      String            @db.Text
+  difficulty       ProblemDifficulty @default(EASY)
+  tags             String[]          @default([])
+
+  // Multi-Language Starter Code: { "PYTHON": "def solve()...", "CPP": "..." }
+  starterCode      Json
+
+  // Language-agnostic conceptual reasoning used by Gemma for Socratic hinting
+  solutionLogic    String?           @db.Text
+
+  // Semantic Vector for RAG / Problem Recommendation (EmbeddingGemma: 768 dimensions)
+  embedding        Unsupported("vector(768)")?
+  embeddingValues  Float[]           @default([]) // Fallback array if pgvector extension is inactive
+
+  isPublished      Boolean           @default(true)
+  authorId         String?
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  author           User?             @relation("AuthoredProblems", fields: [authorId], references: [id], onDelete: SetNull)
+  testCases        TestCase[]
+  submissions      Submission[]
+  bugAutopsies     BugAutopsy[]
+  flashcards       AhaFlashcard[]
+  socraticHints    SocraticHintLog[]
+  aiInteractions   AiInteractionLog[]
+
+  @@index([slug])
+  @@index([difficulty])
+}
+
+model TestCase {
+  id             String    @id @default(uuid())
+  problemId      String
+  input          String    @db.Text
+  expectedOutput String    @db.Text
+  isHidden       Boolean   @default(false) // Public sample test cases vs private evaluation tests
+  orderIndex     Int       @default(0)
+  explanation    String?   @db.Text
+
+  problem        Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@index([problemId])
+  @@index([isHidden])
+}
+
+// ------------------------------------------------------------------------------
+// 4. SUBMISSIONS & CODE WORKSPACES
+// ------------------------------------------------------------------------------
+
+model Submission {
+  id               String              @id @default(uuid())
+  userId           String
+  problemId        String
+  language         ProgrammingLanguage
+  code             String              @db.Text
+
+  status           SubmissionStatus    @default(PENDING)
+  runtimeMs        Int?
+  memoryKb         Int?
+  passedTestCases  Int                 @default(0)
+  totalTestCases   Int                 @default(0)
+  compilerOutput   String?             @db.Text
+
+  // Socratic Metrics: Tracks how independent the student was for this submission
+  isSelfReliant    Boolean             @default(true)
+  hintCountUsed    Int                 @default(0)
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem          Problem             @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  
+  bugAutopsy       BugAutopsy?
+  socraticHints    SocraticHintLog[]
+  aiInteractions   AiInteractionLog[]
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([status])
+  @@index([language])
+}
+
+// ------------------------------------------------------------------------------
+// 5. GOOGLE GEMMA LLM INTERACTIONS & PROMPT AUDITING
+// ------------------------------------------------------------------------------
+
+model AiInteractionLog {
+  id                 String                 @id @default(uuid())
+  userId             String
+  submissionId       String?
+  problemId          String?
+
+  interactionType    AiInteractionType
+  modelVersion       String                 // e.g. "gemma-4-e4b", "function-gemma", "embedding-gemma"
+  provider           GemmaExecutionProvider @default(OLLAMA_LOCAL)
+
+  // Prompt Payloads
+  systemPrompt       String?                @db.Text
+  userPrompt         String                 @db.Text
+  rawResponse        String                 @db.Text
+  
+  // Structured JSON Output returned by Gemma (Function Calling or Schema enforcement)
+  structuredOutput   Json?
+
+  // LLM Hyperparameters
+  temperature        Float                  @default(0.2)
+  topP               Float?                 @default(0.95)
+  maxTokens          Int?
+
+  // Telemetry & Function Calling Details
+  promptTokens       Int?
+  completionTokens   Int?
+  totalTokens        Int?
+  latencyMs          Int?
+  functionCalls      Json?                  // Tool invocations from FunctionGemma (e.g. run_code, search_docs)
+
+  userRating         Int?                   // 1 to 5 user rating on tutor hint quality
+  createdAt          DateTime               @default(now())
+
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submission         Submission?            @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  problem            Problem?               @relation(fields: [problemId], references: [id], onDelete: SetNull)
+
+  socraticHintLogs   SocraticHintLog[]
+
+  @@index([userId])
+  @@index([submissionId])
+  @@index([modelVersion])
+  @@index([interactionType])
+}
+
+// ------------------------------------------------------------------------------
+// 6. SOCRATIC TUTORING DIALOGUES (MULTI-TURN HINTS)
+// ------------------------------------------------------------------------------
+
+model SocraticHintLog {
+  id               String            @id @default(uuid())
+  userId           String
+  problemId        String
+  submissionId     String?
+  aiInteractionId  String?
+
+  // 1 = Conceptual nudge, 2 = Algorithmic breakdown, 3 = Pinpointed syntax / edge-case reflection
+  hintLevel        Int               @default(1)
+  
+  studentQuestion  String?           @db.Text
+  tutorResponse    String            @db.Text
+  studentReply     String?           @db.Text
+
+  wasHelpful       Boolean?
+  createdAt        DateTime          @default(now())
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem          Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  submission       Submission?       @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  aiInteraction    AiInteractionLog? @relation(fields: [aiInteractionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([hintLevel])
+}
+
+// ------------------------------------------------------------------------------
+// 7. BUG AUTOPSIES & FAILURE DIAGNOSTICS
+// ------------------------------------------------------------------------------
+
+model BugAutopsy {
+  id                       String              @id @default(uuid())
+  userId                   String
+  problemId                String
+  submissionId             String              @unique // 1-to-1 with the failed submission
+
+  errorCategory            ErrorCategory       @default(LOGIC)
+  errorType                String              // e.g. "Off-by-One Loop Bound", "Reference Alias Mutation"
+  
+  failedCodeSnippet        String              @db.Text
+  expectedBehavior         String              @db.Text
+  actualBehavior           String              @db.Text
+  
+  // Gemma generated breakdown
+  rootCauseAnalysis        String              @db.Text
+  socraticCorrectionGuide  String              @db.Text // Guiding questions to prevent recurring error
+
+  // Vector embedding for error clustering & recurrent misconception detection (EmbeddingGemma)
+  embedding                Unsupported("vector(768)")?
+  embeddingValues          Float[]             @default([])
+
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
+  user                     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem                  Problem             @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  submission               Submission          @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  flashcards               AhaFlashcard[]
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([errorCategory])
+}
+
+// ------------------------------------------------------------------------------
+// 8. "AHA!" FLASHCARD VAULT (SPACED REPETITION / SM-2)
+// ------------------------------------------------------------------------------
+
+model AhaFlashcard {
+  id              String              @id @default(uuid())
+  userId          String
+  problemId       String?
+  bugAutopsyId    String?
+
+  language        ProgrammingLanguage
+  title           String              // e.g. "Slice vs Splice in JavaScript"
+  conceptTag      String              // e.g. "Array Mutation"
+  
+  // Flashcard Face: Misconception prompt
+  frontPrompt     String              @db.Text
+  
+  // Flashcard Back: Socratic resolution / "Aha!" epiphany insight
+  backInsight     String              @db.Text
+  codeExample     String?             @db.Text
+
+  // Spaced Repetition (SuperMemo-2 / Leitner Algorithm)
+  intervalDays    Int                 @default(1)
+  easeFactor      Float               @default(2.5)
+  repetitions     Int                 @default(0)
+  nextReviewAt    DateTime            @default(now())
+  lastReviewedAt  DateTime?
+  isMastered      Boolean             @default(false)
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem         Problem?            @relation(fields: [problemId], references: [id], onDelete: SetNull)
+  bugAutopsy      BugAutopsy?         @relation(fields: [bugAutopsyId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([nextReviewAt])
+  @@index([conceptTag])
+  @@index([language])
+}
+
+// ------------------------------------------------------------------------------
+// 9. VECTOR KNOWLEDGE BASE & RAG (EMBEDDING GEMMA)
+// ------------------------------------------------------------------------------
+
+model VectorKnowledgeBase {
+  id              String         @id @default(uuid())
+  entityType      RagEntityType  @default(DOCUMENTATION_CHUNK)
+  entityId        String?        // ID referencing Problem, BugAutopsy, or doc item
+  
+  title           String
+  contentChunk    String         @db.Text
+  metadata        Json?          // { "language": "PYTHON", "difficulty": "MEDIUM", "tags": [...] }
+  
+  // Google EmbeddingGemma vector (768 dimensions)
+  embedding       Unsupported("vector(768)")?
+  embeddingValues Float[]        @default([])
+  
+  modelVersion    String         @default("embedding-gemma")
+  createdAt       DateTime       @default(now())
+
+  @@index([entityType])
+  @@index([entityId])
 }
