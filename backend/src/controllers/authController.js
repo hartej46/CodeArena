@@ -13,6 +13,15 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+const googleAuthSchema = z.object({
+  credential: z.string().optional(),
+  accessToken: z.string().optional(),
+  email: z.string().email('Invalid email address').optional(),
+  name: z.string().optional(),
+  avatar: z.string().optional(),
+  googleId: z.string().optional(),
+});
+
 /**
  * POST /api/auth/register
  */
@@ -40,6 +49,19 @@ async function login(req, res, next) {
 }
 
 /**
+ * POST /api/auth/google
+ */
+async function googleAuth(req, res, next) {
+  try {
+    const input = googleAuthSchema.parse(req.body);
+    const result = await authService.handleGoogleAuth(input);
+    res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * GET /api/auth/me
  */
 async function me(req, res, next) {
@@ -54,5 +76,6 @@ async function me(req, res, next) {
 module.exports = {
   register,
   login,
+  googleAuth,
   me,
 };
