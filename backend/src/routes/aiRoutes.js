@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const aiTutorService = require('../services/aiTutorService');
+const dbStorageService = require('../services/dbStorageService');
 const config = require('../../ai/config');
 
 /**
@@ -56,9 +57,27 @@ router.post('/chat', async (req, res) => {
       hintLevel: Number(hintLevel) || 1,
     });
 
+    // Asynchronously persist chat interaction to database
+    let storedSession = null;
+    try {
+      storedSession = await dbStorageService.saveChatInteraction({
+        userId: req.body.userId,
+        sessionId: req.body.sessionId,
+        userPrompt: prompt,
+        assistantResponse: tutorResult,
+        hintLevel: Number(hintLevel) || 1,
+        courseId: req.body.courseId,
+        lessonId: req.body.lessonId,
+        metadata: { language, currentCode: currentCode ? currentCode.slice(0, 500) : '' },
+      });
+    } catch (saveErr) {
+      console.warn('Chat persistence warning:', saveErr.message);
+    }
+
     return res.json({
       success: true,
       data: tutorResult,
+      dbSessionId: storedSession?.session?.id || req.body.sessionId || null,
     });
   } catch (err) {
     console.error('Error in POST /api/ai/chat:', err);
@@ -82,6 +101,9 @@ router.post('/evaluate', async (req, res) => {
       language = 'Python',
       task = '',
       lastOutput = '',
+      userId,
+      sessionId,
+      lessonId,
     } = req.body;
 
     if (!currentCode || typeof currentCode !== 'string' || !currentCode.trim()) {
@@ -99,9 +121,25 @@ router.post('/evaluate', async (req, res) => {
       lastOutput,
     });
 
+    // Asynchronously persist submission and mistake patterns
+    let storedSubmission = null;
+    try {
+      storedSubmission = await dbStorageService.saveCodeSubmission({
+        userId,
+        sessionId,
+        lessonId,
+        language,
+        code: currentCode,
+        evaluationResult,
+      });
+    } catch (subErr) {
+      console.warn('Submission persistence warning:', subErr.message);
+    }
+
     return res.json({
       success: true,
       data: evaluationResult,
+      submissionId: storedSubmission?.id || null,
     });
   } catch (err) {
     console.error('Error in POST /api/ai/evaluate:', err);
