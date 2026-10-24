@@ -85,8 +85,6 @@ export default function AuthPage({ onLogin }) {
   const LANGUAGES = [
     { name: "Python", icon: "🐍" },
     { name: "JavaScript", icon: "⚡" },
-    { name: "C++", icon: "⚙️" },
-    { name: "Java", icon: "☕" },
   ];
 
   const handleSubmit = (e) => {
@@ -158,7 +156,7 @@ export default function AuthPage({ onLogin }) {
             <p className="mt-5 text-base xl:text-lg text-[#475569] max-w-lg font-medium leading-relaxed">
               Take our 5-minute diagnostic to skip what you know. Let our
               Socratic AI guide you toward independent problem-solving across
-              Python, C++, Java, and JavaScript.
+              Python and JavaScript.
             </p>
           </div>
 

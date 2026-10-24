@@ -1,217 +1,9 @@
 import { useState, useMemo } from "react";
+import Navbar from "../components/Navbar";
 
 // ──────────────────────────────────────────────
-//  DATA: Multi-language learning tracks
+//  Inline SVG Icons (Zero Missing Dependencies)
 // ──────────────────────────────────────────────
-const LANGUAGE_TRACKS = {
-  Python: {
-    name: "Python 3",
-    shortName: "Python",
-    badge: "PY",
-    icon: "🐍",
-    progress: 70,
-    masteredCount: 14,
-    totalCount: 20,
-    weakAreas: 6,
-    diagnosticScore: 70,
-    level: "Intermediate Track",
-    currentModule: "Recursion & Edge-Case Boundaries",
-    upcomingTopics: [
-      {
-        id: 1,
-        title: "Recursion & Base Case Boundaries",
-        tag: "Weakness Detected",
-        duration: "15 min",
-        status: "next",
-        label: "Next Up",
-      },
-      {
-        id: 2,
-        title: "Sliding Window & Two Pointers",
-        tag: "Logic Gap",
-        duration: "20 min",
-        status: "upcoming",
-        label: "Up Next",
-      },
-      {
-        id: 3,
-        title: "HashMap Time-Complexity Optimization",
-        tag: "Time Complexity",
-        duration: "25 min",
-        status: "upcoming",
-        label: "Queued",
-      },
-    ],
-  },
-  JavaScript: {
-    name: "JavaScript ES6+",
-    shortName: "JavaScript",
-    badge: "JS",
-    icon: "⚡",
-    progress: 55,
-    masteredCount: 11,
-    totalCount: 20,
-    weakAreas: 9,
-    diagnosticScore: 55,
-    level: "Intermediate Track",
-    currentModule: "Async Promises & Event Loop",
-    upcomingTopics: [
-      {
-        id: 1,
-        title: "Async/Await Error Handling & Try-Catch",
-        tag: "Weakness Detected",
-        duration: "15 min",
-        status: "next",
-        label: "Next Up",
-      },
-      {
-        id: 2,
-        title: "Array Higher-Order Methods (reduce / map)",
-        tag: "Core Syntax",
-        duration: "20 min",
-        status: "upcoming",
-        label: "Up Next",
-      },
-      {
-        id: 3,
-        title: "Closures & Lexical Scope Edge Cases",
-        tag: "Deep Dive",
-        duration: "25 min",
-        status: "upcoming",
-        label: "Queued",
-      },
-    ],
-  },
-  "C++": {
-    name: "C++ 17",
-    shortName: "C++",
-    badge: "C++",
-    icon: "⚙️",
-    progress: 40,
-    masteredCount: 8,
-    totalCount: 20,
-    weakAreas: 12,
-    diagnosticScore: 40,
-    level: "Beginner Track",
-    currentModule: "STL Vectors & Memory References",
-    upcomingTopics: [
-      {
-        id: 1,
-        title: "Pass-by-Reference (&) vs Pass-by-Value",
-        tag: "Bridge from Python",
-        duration: "15 min",
-        status: "next",
-        label: "Next Up",
-      },
-      {
-        id: 2,
-        title: "STL unordered_map & Iterator Safety",
-        tag: "Data Structures",
-        duration: "20 min",
-        status: "upcoming",
-        label: "Up Next",
-      },
-      {
-        id: 3,
-        title: "Integer Overflow & 64-bit long long Bounds",
-        tag: "Edge Cases",
-        duration: "20 min",
-        status: "upcoming",
-        label: "Queued",
-      },
-    ],
-  },
-  Java: {
-    name: "Java 17",
-    shortName: "Java",
-    badge: "JV",
-    icon: "☕",
-    progress: 30,
-    masteredCount: 6,
-    totalCount: 20,
-    weakAreas: 14,
-    diagnosticScore: 30,
-    level: "Beginner Track",
-    currentModule: "OOP Fundamentals & Collections",
-    upcomingTopics: [
-      {
-        id: 1,
-        title: "Interfaces vs Abstract Classes",
-        tag: "Core OOP",
-        duration: "15 min",
-        status: "next",
-        label: "Next Up",
-      },
-      {
-        id: 2,
-        title: "HashMap vs TreeMap Internals",
-        tag: "Collections",
-        duration: "20 min",
-        status: "upcoming",
-        label: "Up Next",
-      },
-      {
-        id: 3,
-        title: "Exception Handling & Custom Exceptions",
-        tag: "Error Handling",
-        duration: "18 min",
-        status: "upcoming",
-        label: "Queued",
-      },
-    ],
-  },
-};
-
-// ──────────────────────────────────────────────
-//  ICONS (inline SVGs — zero external deps)
-// ──────────────────────────────────────────────
-
-function ChevronDownIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
-function ArrowRightIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
-    </svg>
-  );
-}
-
-function SparklesIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z" />
-      <path d="M5 3v4M3 5h4M19 17v4M17 19h4" />
-    </svg>
-  );
-}
-
-function BrainIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2a4 4 0 0 1 4 4 4 4 0 0 1-1.18 2.84A4 4 0 0 1 16 12a4 4 0 0 1-2 3.46V20a2 2 0 0 1-4 0v-4.54A4 4 0 0 1 8 12a4 4 0 0 1 1.18-2.84A4 4 0 0 1 8 6a4 4 0 0 1 4-4z" />
-      <path d="M12 2a4 4 0 0 0-4 4c0 .82.25 1.58.67 2.22" />
-      <path d="M8.67 8.22A4 4 0 0 0 8 12c0 1.44.77 2.7 1.92 3.4" />
-    </svg>
-  );
-}
-
-function TargetIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="2" />
-    </svg>
-  );
-}
-
 function BookOpenIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -221,44 +13,150 @@ function BookOpenIcon({ className = "w-4 h-4" }) {
   );
 }
 
-function ClockIcon({ className = "w-3.5 h-3.5" }) {
+function CompassIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
     </svg>
   );
 }
 
-function GlobeIcon({ className = "w-4 h-4" }) {
+function CodeIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
+    </svg>
+  );
+}
+
+function SettingsIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function FlameIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+    </svg>
+  );
+}
+
+function ShieldCheckIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  );
+}
+
+function BugIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="8" height="14" x="8" y="6" rx="4" />
+      <path d="m19 7-3 2" />
+      <path d="m5 7 3 2" />
+      <path d="m19 19-3-2" />
+      <path d="m5 19 3-2" />
+      <path d="M20 13h-4" />
+      <path d="M4 13h4" />
+      <path d="m10 4 1 2" />
+      <path d="m14 4-1 2" />
+    </svg>
+  );
+}
+
+function SparklesIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
     </svg>
   );
 }
 
 // ──────────────────────────────────────────────
-//  HOME PAGE COMPONENT
+//  DATA: Enrolled Courses & Learning Tracks
 // ──────────────────────────────────────────────
+const ENROLLED_COURSES = [
+  {
+    id: "Python",
+    name: "Python 3 Mastery",
+    badge: "PY",
+    icon: "🐍",
+    progress: 70,
+    masteredCount: 14,
+    totalCount: 20,
+    diagnosticScore: 70,
+    currentModule: "Recursion & Edge-Case Boundaries",
+    accentColor: "#FFDF2B",
+    upcomingTopics: [
+      { id: 1, title: "Recursion & Base Case Boundaries", tag: "Weakness Detected", duration: "15 min", status: "next" },
+      { id: 2, title: "Sliding Window & Two Pointers", tag: "Logic Gap", duration: "20 min", status: "queued" },
+      { id: 3, title: "HashMap Time-Complexity Optimization", tag: "Time Complexity", duration: "25 min", status: "queued" },
+    ],
+    bugAutopsy: [
+      { type: "Off-by-One Loop Bound", category: "LOGIC", severity: "High", occurrences: 4 },
+      { type: "Reference Mutability Alias", category: "SYNTAX", severity: "Medium", occurrences: 2 },
+    ]
+  },
+  {
+    id: "JavaScript",
+    name: "JavaScript ES6+ Core",
+    badge: "JS",
+    icon: "⚡",
+    progress: 55,
+    masteredCount: 11,
+    totalCount: 20,
+    diagnosticScore: 55,
+    currentModule: "Async Promises & Event Loop",
+    accentColor: "#FDE047",
+    upcomingTopics: [
+      { id: 1, title: "Async/Await Error Handling & Try-Catch", tag: "Async Gap", duration: "15 min", status: "next" },
+      { id: 2, title: "Array Higher-Order Methods (reduce/map)", tag: "Syntax", duration: "20 min", status: "queued" },
+      { id: 3, title: "Closures & Lexical Scope Boundaries", tag: "Deep Dive", duration: "25 min", status: "queued" },
+    ],
+    bugAutopsy: [
+      { type: "Unhandled Promise Rejection", category: "ASYNC", severity: "High", occurrences: 3 },
+      { type: "Shallow Copy Object Mutation", category: "LOGIC", severity: "Medium", occurrences: 2 },
+    ]
+  }
+];
+
 export default function Home({ username = "Aarav", onNavigate }) {
-  const [selectedLang, setSelectedLang] = useState("Python");
-  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
-  const activeTrack = LANGUAGE_TRACKS[selectedLang];
+  const [selectedCourseId, setSelectedCourseId] = useState("Python");
+  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard | polyglot | settings
 
-  // Dynamic morning / afternoon / evening calculation
+  const currentCourse = useMemo(() => {
+    return ENROLLED_COURSES.find((c) => c.id === selectedCourseId) || ENROLLED_COURSES[0];
+  }, [selectedCourseId]);
+
+  // Dynamic greeting
   const timeGreeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return "morning";
-    if (hour < 17) return "afternoon";
-    return "evening";
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
   }, []);
 
   return (
     <div
-      className="min-h-screen text-[#0F172A] selection:bg-[#FFDF2B]"
+      className="min-h-screen text-[#0F172A] selection:bg-[#FFDF2B] flex flex-col"
       style={{
         backgroundColor: "#FAF9F0",
         backgroundImage: `
@@ -268,499 +166,317 @@ export default function Home({ username = "Aarav", onNavigate }) {
         backgroundSize: "32px 32px",
       }}
     >
-      {/* ═══════════════════════════════════════════
-          A. TOP NAVIGATION BAR
-          ═══════════════════════════════════════════ */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-[#FAF9F0]/85 border-b-2 border-[#0F172A]/8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-          {/* Brand Logo */}
-          <div className="flex items-center gap-2.5 group cursor-pointer">
-            <div className="w-9 h-9 rounded-lg bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-mono font-bold text-sm transition-transform group-hover:rotate-6">
-              {"</>"}
-            </div>
-            <span className="text-xl font-extrabold tracking-tight text-[#0F172A]">
-              CodeArena<span className="text-[#FFDF2B]">.</span>
-            </span>
-          </div>
+      {/* ── Top Navigation Bar ── */}
+      <Navbar
+        activePage="home"
+        onNavigate={onNavigate}
+        selectedLang={selectedCourseId}
+        onSelectLang={(lang) => {
+          const match = ENROLLED_COURSES.find(
+            (c) => c.name.toLowerCase().includes(lang.toLowerCase()) || c.id.toLowerCase() === lang.toLowerCase()
+          );
+          if (match) setSelectedCourseId(match.id);
+        }}
+        username={username}
+      />
 
-          {/* Center Nav Links */}
-          <nav className="hidden md:flex items-center gap-1 text-sm font-semibold text-[#475569]">
-            <a
-              href="#home"
-              onClick={(e) => {
-                e.preventDefault();
-                if (onNavigate) onNavigate("home");
-                else window.location.hash = "home";
-              }}
-              className="px-4 py-1.5 rounded-full bg-[#DBEAFE] text-[#1D4ED8] border border-[#93C5FD] transition-all hover:shadow-sm font-bold cursor-pointer"
-            >
-              Home
-            </a>
-            <a
-              href="#dashboard"
-              onClick={(e) => {
-                e.preventDefault();
-                if (onNavigate) onNavigate("dashboard");
-                else window.location.hash = "dashboard";
-              }}
-              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all font-semibold cursor-pointer"
-            >
-              Dashboard
-            </a>
-            <a
-              href="#ai-tutor"
-              onClick={(e) => {
-                e.preventDefault();
-                if (onNavigate) onNavigate("ai-tutor");
-                else window.location.hash = "ai-tutor";
-              }}
-              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all font-semibold cursor-pointer"
-            >
-              AI Tutor
-            </a>
-            <a
-              href="#polyglot"
-              onClick={(e) => {
-                e.preventDefault();
-                if (onNavigate) onNavigate("polyglot");
-                else window.location.hash = "polyglot";
-              }}
-              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all font-semibold cursor-pointer"
-            >
-              Polyglot Lab
-            </a>
-          </nav>
-
-          {/* Right: Language Badge + User Profile */}
-          <div className="flex items-center gap-3">
-            {/* Language Switcher Badge */}
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border-2 border-[#0F172A] text-xs font-bold shadow-[2px_2px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer">
-              <GlobeIcon className="w-3.5 h-3.5" />
-              {activeTrack.shortName}
-            </span>
-
-            {/* Streak + Avatar Pill */}
-            <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
-              <span className="text-xs font-bold">🔥 5</span>
-              <div className="w-7 h-7 rounded-full bg-[#DBEAFE] border-2 border-[#0F172A] flex items-center justify-center font-bold text-xs text-[#1D4ED8]">
-                {username.charAt(0).toUpperCase()}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* ═══════════════════════════════════════════
-          MAIN CONTENT
-          ═══════════════════════════════════════════ */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-
-        {/* ─── B. DYNAMIC TIME-OF-DAY GREETING ─── */}
-        <section className="mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 mb-4 rounded-full bg-[#DBEAFE] border border-[#93C5FD] text-[#1D4ED8] font-mono text-[11px] font-bold tracking-wider uppercase">
-            <SparklesIcon className="w-3.5 h-3.5" />
-            AI-POWERED MULTI-LANGUAGE LEARNING WORKSPACE
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl lg:text-[3.5rem] font-black tracking-tight text-[#0F172A] leading-[1.1]">
-            Hey!{" "}
-            <span className="relative inline-block">
-              {username}
-              {/* Hand-drawn style coral red underline */}
-              <svg
-                className="absolute -bottom-2 left-0 w-full h-3 text-[#EF4444]"
-                viewBox="0 0 200 12"
-                fill="none"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M3 9C20 3 50 2 100 6C150 10 180 4 197 7"
-                  stroke="currentColor"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M10 10C60 4 140 4 190 9"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  opacity="0.4"
-                />
-              </svg>
-            </span>
-            , Good {timeGreeting} 👋
-          </h1>
-
-          <p className="mt-4 text-base sm:text-lg text-[#475569] max-w-2xl font-medium leading-relaxed">
-            Pick up right where you left off. Your Socratic AI tutor is ready to
-            guide you step-by-step—no spoilers, just real problem-solving.
-          </p>
-        </section>
-
+      <div className="flex-1 flex flex-col md:flex-row min-h-[calc(100vh-65px)]">
         {/* ═══════════════════════════════════════════
-            MAIN WORKSPACE BENTO GRID
+            LEFT SIDEBAR (Width: ~280px, Solid border)
             ═══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-
-          {/* ─────────────────────────────────────────
-              C. ACTIVE LANGUAGE LEARNING SQUARE CARD
-              ───────────────────────────────────────── */}
-          <div className="lg:col-span-7 bg-white border-2 border-[#0F172A] rounded-2xl shadow-[6px_6px_0px_#0F172A] overflow-hidden flex flex-col">
-            {/* macOS-style top bar */}
-            <div className="px-4 sm:px-5 py-3 bg-[#F8FAFC] border-b-2 border-[#0F172A] flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#EF4444] border border-[#0F172A]/30" />
-                <span className="w-3 h-3 rounded-full bg-[#F59E0B] border border-[#0F172A]/30" />
-                <span className="w-3 h-3 rounded-full bg-[#10B981] border border-[#0F172A]/30" />
-                <span className="ml-2 text-xs font-mono font-semibold text-[#475569]">
-                  CodeArena — Active Learning Track
+        <aside className="w-full md:w-72 shrink-0 bg-[#FAF9F0] border-r-2 border-[#0F172A] p-5 flex flex-col justify-between">
+          <div className="space-y-6">
+            {/* SECTION A: ENROLLED COURSES / ACTIVE TRACKS */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#475569] flex items-center gap-1.5">
+                  <BookOpenIcon className="w-3.5 h-3.5 text-[#0F172A]" />
+                  Enrolled Courses
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-[#FFDF2B] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A]">
+                  {ENROLLED_COURSES.length} Active
                 </span>
               </div>
 
-              {/* Quick language tabs */}
-              <div className="flex items-center gap-1">
-                {Object.keys(LANGUAGE_TRACKS).map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => setSelectedLang(lang)}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md border transition-all cursor-pointer ${
-                      selectedLang === lang
-                        ? "bg-[#FFDF2B] text-[#0F172A] border-[#0F172A] shadow-[1px_1px_0px_#0F172A]"
-                        : "bg-white text-[#475569] border-transparent hover:border-[#CBD5E1] hover:bg-[#F8FAFC]"
-                    }`}
+              <div className="space-y-2">
+                {ENROLLED_COURSES.map((course) => {
+                  const isSelected = course.id === selectedCourseId;
+                  return (
+                    <button
+                      key={course.id}
+                      onClick={() => setSelectedCourseId(course.id)}
+                      className={`w-full text-left p-3 rounded-xl border-2 border-[#0F172A] transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-white shadow-[4px_4px_0px_#0F172A] translate-x-1"
+                          : "bg-white/70 hover:bg-white hover:shadow-[2px_2px_0px_#0F172A]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{course.icon}</span>
+                          <span className="text-xs font-black text-[#0F172A]">{course.name}</span>
+                        </div>
+                        <span className="text-xs font-black text-[#0F172A]">{course.progress}%</span>
+                      </div>
+
+                      {/* Mini Progress Bar */}
+                      <div className="w-full h-2 rounded-full bg-slate-100 border border-[#0F172A] overflow-hidden">
+                        <div
+                          className="h-full bg-[#FFDF2B] transition-all duration-500"
+                          style={{ width: `${course.progress}%` }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* SECTION B: QUICK NAVIGATION */}
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#475569] mb-3 block flex items-center gap-1.5">
+                <CompassIcon className="w-3.5 h-3.5 text-[#0F172A]" />
+                Quick Navigation
+              </span>
+
+              <nav className="space-y-1.5">
+                <button
+                  onClick={() => setActiveTab("dashboard")}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black border-2 border-[#0F172A] transition-all cursor-pointer ${
+                    activeTab === "dashboard"
+                      ? "bg-[#FFDF2B] text-[#0F172A] shadow-[2px_2px_0px_#0F172A]"
+                      : "bg-white text-[#475569] hover:text-[#0F172A] hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <CompassIcon className="w-4 h-4" />
+                    Dashboard Overview
+                  </span>
+                  <span className="text-[10px] font-mono">Live</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab("polyglot");
+                    if (onNavigate) onNavigate("ai-tutor");
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black border-2 border-[#0F172A] bg-white text-[#475569] hover:text-[#0F172A] hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <CodeIcon className="w-4 h-4" />
+                    Open AI Tutor
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#DBEAFE] text-[#1D4ED8] border border-[#0F172A]">
+                    Socratic
+                  </span>
+                </button>
+              </nav>
+            </div>
+          </div>
+
+          {/* User Profile Mini Footer */}
+          <div className="mt-6 pt-4 border-t-2 border-[#0F172A]/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-black text-xs text-[#0F172A]">
+                {username.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-xs font-black text-[#0F172A] leading-none">{username}</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5">Pro Learner</p>
+              </div>
+            </div>
+            <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-300">
+              🔥 5d
+            </span>
+          </div>
+        </aside>
+
+        {/* ═══════════════════════════════════════════
+            MAIN CONTENT AREA (Right of Sidebar)
+            ═══════════════════════════════════════════ */}
+        <main className="flex-1 p-5 sm:p-8 max-w-6xl overflow-y-auto">
+          {/* 1. USER GREETING BANNER */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DBEAFE] border border-[#0F172A] text-xs font-black text-[#1D4ED8] mb-2 shadow-[2px_2px_0px_#0F172A]">
+                <SparklesIcon className="w-3.5 h-3.5" />
+                Adaptive Learning Mode Active
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
+                Hey! {username}, {timeGreeting} 👋
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 font-bold mt-1">
+                You're making strong progress in <span className="underline decoration-[#FFDF2B] decoration-4 font-black text-[#0F172A]">{currentCourse.name}</span>. Here is your daily diagnostic breakdown:
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                if (onNavigate) onNavigate("ai-tutor");
+              }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#FFDF2B] text-[#0F172A] font-black text-sm border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px] transition-all cursor-pointer self-start sm:self-auto"
+            >
+              <span>Launch AI Tutor</span>
+              <ArrowRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* 2. ACTIVE LANGUAGE LEARNING PROGRESS SQUARE CARD */}
+          <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] p-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-[#0F172A]/10">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{currentCourse.icon}</span>
+                <div>
+                  <h2 className="text-lg font-black text-[#0F172A]">{currentCourse.name}</h2>
+                  <p className="text-xs font-bold text-slate-500">
+                    Current Focus: <span className="text-[#0F172A] font-black">{currentCourse.currentModule}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-xl bg-[#FAF9F0] border-2 border-[#0F172A] text-xs font-black shadow-[2px_2px_0px_#0F172A]">
+                  Diagnostic: {currentCourse.diagnosticScore}%
+                </span>
+                <span className="px-3 py-1 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] text-xs font-black shadow-[2px_2px_0px_#0F172A]">
+                  {currentCourse.masteredCount} / {currentCourse.totalCount} Concepts
+                </span>
+              </div>
+            </div>
+
+            {/* Main Progress Bar */}
+            <div className="mt-5 mb-6">
+              <div className="flex justify-between text-xs font-black text-[#0F172A] mb-2">
+                <span>Course Completion Progress</span>
+                <span>{currentCourse.progress}% Completed</span>
+              </div>
+              <div className="w-full h-4 rounded-xl bg-slate-100 border-2 border-[#0F172A] overflow-hidden p-0.5">
+                <div
+                  className="h-full rounded-lg bg-[#FFDF2B] border-r border-[#0F172A] transition-all duration-700 progress-stripes"
+                  style={{ width: `${currentCourse.progress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Upcoming Topics Checklist */}
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-[#475569] mb-3">
+                Next Up in This Track:
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {currentCourse.upcomingTopics.map((topic, i) => (
+                  <div
+                    key={topic.id}
+                    className="p-3.5 rounded-xl border-2 border-[#0F172A] bg-[#FAF9F0] flex flex-col justify-between hover:shadow-[3px_3px_0px_#0F172A] transition-all cursor-pointer"
+                    onClick={() => {
+                      if (onNavigate) onNavigate("ai-tutor");
+                    }}
                   >
-                    {LANGUAGE_TRACKS[lang].badge}
-                  </button>
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-[#DBEAFE] text-[#1D4ED8] border border-[#0F172A]">
+                          {topic.tag}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500 font-bold">{topic.duration}</span>
+                      </div>
+                      <p className="text-xs font-black text-[#0F172A] leading-snug">{topic.title}</p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-[#0F172A]/10 flex items-center justify-between text-[11px] font-black text-[#1D4ED8]">
+                      <span>{topic.status === "next" ? "▶️ Start Exercise" : "Queued"}</span>
+                      <ArrowRightIcon className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Card body */}
-            <div className="p-5 sm:p-7 space-y-6 flex-1 flex flex-col">
-
-              {/* ── 1. CURRENT LANGUAGE HEADER ── */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-14 h-14 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] flex items-center justify-center text-2xl">
-                    {activeTrack.icon}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#475569]">
-                        Currently Studying
-                      </span>
-                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#DBEAFE] text-[#1D4ED8] border border-[#93C5FD]">
-                        Diagnostic Score: {activeTrack.diagnosticScore}%
-                      </span>
-                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#F0FDF4] text-[#15803D] border border-[#86EFAC]">
-                        {activeTrack.level}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A]">
-                        {activeTrack.name}
-                      </h2>
-                      {/* Dropdown toggle */}
-                      <button
-                        onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-                        className="p-1 rounded-md hover:bg-[#F1F5F9] transition cursor-pointer"
-                      >
-                        <ChevronDownIcon className={`w-5 h-5 text-[#475569] transition-transform ${langDropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-
-                    {/* Dropdown menu */}
-                    {langDropdownOpen && (
-                      <div className="mt-2 p-1.5 bg-white border-2 border-[#0F172A] rounded-xl shadow-[4px_4px_0px_#0F172A] absolute z-10">
-                        {Object.keys(LANGUAGE_TRACKS).map((lang) => (
-                          <button
-                            key={lang}
-                            onClick={() => {
-                              setSelectedLang(lang);
-                              setLangDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition cursor-pointer ${
-                              selectedLang === lang
-                                ? "bg-[#FFDF2B] text-[#0F172A]"
-                                : "hover:bg-[#F8FAFC] text-[#475569]"
-                            }`}
-                          >
-                            <span>{LANGUAGE_TRACKS[lang].icon}</span>
-                            <span>{LANGUAGE_TRACKS[lang].name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="text-3xl sm:text-4xl font-black text-[#0F172A]">
-                    {activeTrack.progress}%
-                  </span>
-                  <p className="text-xs font-semibold text-[#475569]">
-                    Goal: 100%
-                  </p>
-                </div>
-              </div>
-
-              {/* ── 2. INTERACTIVE PROGRESS BAR SECTION ── */}
-              <div className="p-4 rounded-xl bg-[#FAF9F0] border-2 border-[#0F172A]">
-                <div className="flex justify-between items-center text-[11px] font-extrabold text-[#0F172A] mb-2.5 uppercase tracking-wider">
-                  <span className="flex items-center gap-1.5">
-                    <TargetIcon className="w-3.5 h-3.5" />
-                    {activeTrack.progress}% Mastery → Goal: 100%
-                  </span>
-                  <span className="text-[#475569] font-bold normal-case">
-                    {activeTrack.masteredCount}/{activeTrack.totalCount} Topics
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full h-5 bg-white rounded-full border-2 border-[#0F172A] overflow-hidden">
-                  <div
-                    className="h-full bg-[#FFDF2B] rounded-full transition-all duration-700 ease-out relative progress-stripes"
-                    style={{ width: `${activeTrack.progress}%` }}
-                  >
-                    {/* End marker */}
-                    <div className="absolute right-0 top-0 h-full w-0.5 bg-[#0F172A]" />
-                  </div>
-                </div>
-
-                <p className="mt-2.5 text-xs text-[#475569] font-medium">
-                  💡{" "}
-                  <strong className="text-[#0F172A]">
-                    {activeTrack.masteredCount} of {activeTrack.totalCount}
-                  </strong>{" "}
-                  Core Concepts Mastered •{" "}
-                  <strong className="text-[#EF4444]">
-                    {activeTrack.weakAreas} Weak Areas
-                  </strong>{" "}
-                  Remaining
-                </p>
-              </div>
-
-              {/* ── 3. UPCOMING TOPICS LIST ── */}
-              <div className="flex-1">
+          {/* 3. COMPANION ANALYTICS (AI Self-Reliance & Bug DNA) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* AI SELF-RELIANCE SCORE */}
+            <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] p-5 flex flex-col justify-between">
+              <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-[#475569] flex items-center gap-1.5">
-                    <BookOpenIcon className="w-3.5 h-3.5" />
-                    Upcoming Topics (Based on Your Diagnostic Gaps)
-                  </h3>
-                  <span className="text-[11px] font-bold text-[#1D4ED8] bg-[#DBEAFE] px-2 py-0.5 rounded-full">
-                    {activeTrack.upcomingTopics.length} Queued
+                  <div className="flex items-center gap-2">
+                    <ShieldCheckIcon className="w-5 h-5 text-emerald-600" />
+                    <h3 className="text-sm font-black text-[#0F172A]">AI Self-Reliance Score</h3>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    High Autonomy
                   </span>
                 </div>
 
-                <div className="space-y-2.5">
-                  {activeTrack.upcomingTopics.map((topic, index) => (
-                    <div
-                      key={topic.id}
-                      className={`group p-3.5 rounded-xl border-2 border-[#0F172A] flex items-center justify-between gap-3 transition-all cursor-pointer ${
-                        topic.status === "next"
-                          ? "bg-[#FEF9C3] shadow-[3px_3px_0px_#0F172A] pulse-active"
-                          : "bg-white hover:bg-[#F8FAFC] hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[-1px] hover:translate-y-[-1px]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`w-8 h-8 rounded-lg border-2 border-[#0F172A] flex items-center justify-center text-xs font-black shrink-0 ${
-                            topic.status === "next"
-                              ? "bg-[#FFDF2B]"
-                              : "bg-[#F8FAFC]"
-                          }`}
-                        >
-                          {index + 1}
-                        </span>
-                        <div>
-                          <p className="text-sm font-bold text-[#0F172A] group-hover:text-[#0F172A]">
-                            {topic.title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#1D4ED8]">
-                              {topic.tag}
-                            </span>
-                            <span className="text-[10px] font-semibold text-[#475569] flex items-center gap-1">
-                              <ClockIcon className="w-3 h-3" />
-                              {topic.duration}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                <div className="flex items-center gap-4 my-3">
+                  <div className="w-20 h-20 rounded-2xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] flex flex-col items-center justify-center shrink-0">
+                    <span className="text-2xl font-black text-[#0F172A]">84%</span>
+                    <span className="text-[9px] font-black uppercase text-slate-700">Autonomy</span>
+                  </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          topic.status === "next"
-                            ? "bg-[#0F172A] text-[#FFDF2B]"
-                            : "bg-[#F1F5F9] text-[#475569]"
-                        }`}>
-                          {topic.label}
-                        </span>
-                        <ArrowRightIcon className="w-4 h-4 text-[#475569] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div>
+                    <p className="text-xs font-bold text-[#0F172A] leading-relaxed">
+                      You solve 84% of challenges using guided Socratic inquiries without asking for complete code solutions.
+                    </p>
+                    <p className="text-[11px] font-bold text-emerald-700 mt-1 flex items-center gap-1">
+                      <span>▲</span> +6% reliance boost this week
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t-2 border-[#0F172A]/10 text-[11px] font-bold text-slate-500">
+                Tip: Each step solved independently increases your mastery score.
+              </div>
+            </div>
+
+            {/* BUG DNA & WEAKNESS SUMMARY */}
+            <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <BugIcon className="w-5 h-5 text-rose-500" />
+                    <h3 className="text-sm font-black text-[#0F172A]">Bug DNA Diagnostics</h3>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                    Recent Autopsies
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {currentCourse.bugAutopsy.map((bug, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-xl border border-[#0F172A] bg-[#FAF9F0] flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-xs font-black text-[#0F172A]">{bug.type}</p>
+                        <p className="text-[10px] font-bold text-slate-500">
+                          {bug.category} • Detected {bug.occurrences} times
+                        </p>
                       </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border border-[#0F172A] ${
+                        bug.severity === "Critical" ? "bg-rose-200 text-rose-900" : "bg-amber-200 text-amber-900"
+                      }`}>
+                        {bug.severity}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* ── 4. CONTINUE LEARNING FOOTER ── */}
-              <div className="pt-2 border-t-2 border-dashed border-[#0F172A]/10 flex flex-col sm:flex-row items-center gap-3">
-                <button className="w-full sm:flex-1 py-3.5 px-6 rounded-xl bg-[#FFDF2B] hover:bg-[#f5d311] text-[#0F172A] font-extrabold text-base border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-[1px_1px_0px_#0F172A] active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 cursor-pointer">
-                  <span>Continue Learning {activeTrack.shortName}</span>
-                  <ArrowRightIcon className="w-5 h-5" />
-                </button>
-
-                <button className="w-full sm:w-auto py-3.5 px-5 rounded-xl bg-white hover:bg-[#F8FAFC] text-[#0F172A] font-bold text-sm border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer">
-                  Switch or Add New Language
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  if (onNavigate) onNavigate("ai-tutor");
+                }}
+                className="mt-3 w-full py-2 rounded-xl bg-[#DBEAFE] hover:bg-blue-200 text-[#1D4ED8] font-black text-xs border border-[#0F172A] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <span>Practice Bug Autopsies in AI Tutor</span>
+                <ArrowRightIcon className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
-
-          {/* ─────────────────────────────────────────
-              D. RIGHT COLUMN: COMPANION CARDS
-              ───────────────────────────────────────── */}
-          <div className="lg:col-span-5 space-y-6">
-
-            {/* ── CARD 1: 70% → 100% Path vs New Language Bridge ── */}
-            <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] overflow-hidden">
-              {/* Card header */}
-              <div className="px-5 py-3 bg-[#F8FAFC] border-b-2 border-[#0F172A] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TargetIcon className="w-4 h-4 text-[#1D4ED8]" />
-                  <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
-                    Learning Path
-                  </span>
-                </div>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#DBEAFE] text-[#1D4ED8]">
-                  BRIDGE MODE
-                </span>
-              </div>
-
-              <div className="p-5 space-y-4">
-                {/* Current path summary */}
-                <div className="p-3.5 rounded-xl bg-[#FEF9C3] border-2 border-[#0F172A]">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-extrabold text-[#0F172A]">
-                      Push {activeTrack.shortName} to 100%
-                    </span>
-                    <span className="text-2xl font-black text-[#0F172A]">
-                      {activeTrack.progress}%
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 bg-white rounded-full border border-[#0F172A] overflow-hidden">
-                    <div
-                      className="h-full bg-[#FFDF2B] rounded-full transition-all duration-500"
-                      style={{ width: `${activeTrack.progress}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-[11px] text-[#475569] font-medium">
-                    {activeTrack.totalCount - activeTrack.masteredCount} concepts remaining • ~{(activeTrack.totalCount - activeTrack.masteredCount) * 15} min estimated
-                  </p>
-                </div>
-
-                {/* Divider */}
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-[#0F172A]/10" />
-                  <span className="text-[10px] font-extrabold text-[#475569] uppercase tracking-widest">or try a new language</span>
-                  <div className="flex-1 h-px bg-[#0F172A]/10" />
-                </div>
-
-                {/* New language options */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  {["C++", "Java", "JavaScript", "Rust"].map((lang) => (
-                    <button
-                      key={lang}
-                      onClick={() =>
-                        LANGUAGE_TRACKS[lang] && setSelectedLang(lang)
-                      }
-                      className="group p-3 rounded-xl border-2 border-[#0F172A] bg-[#FAF9F0] hover:bg-[#FFDF2B] text-left transition-all cursor-pointer hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[-1px] hover:translate-y-[-1px]"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-extrabold text-[#0F172A]">{lang}</span>
-                        <ArrowRightIcon className="w-3.5 h-3.5 text-[#475569] group-hover:text-[#0F172A] transition" />
-                      </div>
-                      <span className="text-[10px] font-semibold text-[#1D4ED8] mt-1 block">
-                        MCQ + Code Diagnostic
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                <p className="text-[11px] text-[#475569] font-medium text-center">
-                  Take a 5-min diagnostic to skip concepts you already know
-                </p>
-              </div>
-            </div>
-
-            {/* ── CARD 2: Socratic AI Tutor Status ── */}
-            <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] overflow-hidden">
-              {/* Card header */}
-              <div className="px-5 py-3 bg-[#F8FAFC] border-b-2 border-[#0F172A] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <BrainIcon className="w-4 h-4 text-[#1D4ED8]" />
-                  <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
-                    Socratic AI Tutor
-                  </span>
-                </div>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#F0FDF4] text-[#15803D] border border-[#86EFAC]">
-                  ● Active
-                </span>
-              </div>
-
-              <div className="p-5 space-y-4">
-                {/* Self-Reliance Score */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold text-[#475569] uppercase tracking-wider">
-                      Self-Reliance Score
-                    </p>
-                    <p className="text-3xl font-black text-[#0F172A] mt-0.5">
-                      84%
-                    </p>
-                  </div>
-                  <div className="w-16 h-16 rounded-xl bg-[#DBEAFE] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center">
-                    <span className="text-2xl">🤖</span>
-                  </div>
-                </div>
-
-                {/* Score bar */}
-                <div className="w-full h-3 bg-[#FAF9F0] rounded-full border-2 border-[#0F172A] overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#DBEAFE] to-[#1D4ED8] rounded-full transition-all duration-500"
-                    style={{ width: "84%" }}
-                  />
-                </div>
-                <p className="text-[11px] text-[#475569] font-medium">
-                  You solved <strong className="text-[#0F172A]">84%</strong> of problems with minimal hints — great independence!
-                </p>
-
-                {/* Last session hint */}
-                <div className="p-3.5 rounded-xl bg-[#FEF9C3] border-2 border-[#0F172A]">
-                  <p className="text-xs font-bold text-[#854D0E] mb-1.5 flex items-center gap-1.5">
-                    <span>💡</span>
-                    Last Failed Problem: Two Sum
-                  </p>
-                  <p className="text-[11px] text-[#854D0E] leading-relaxed">
-                    Your logic was solid, but you missed an edge case with duplicate elements. Ready for step-by-step Socratic hints?
-                  </p>
-                </div>
-
-                {/* Action */}
-                <button
-                  onClick={() => onNavigate?.("ai-tutor")}
-                  className="w-full py-3 px-4 rounded-xl bg-[#DBEAFE] hover:bg-[#BFDBFE] text-[#1D4ED8] font-bold text-sm border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <BrainIcon className="w-4 h-4" />
-                  Retry "Two Sum" with Socratic Hints
-                  <ArrowRightIcon className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
