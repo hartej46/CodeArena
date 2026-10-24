@@ -25,9 +25,10 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Scrollbar Styling */
+/* Scrollbar Styling - Default Light */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: #FAF9F0;
@@ -35,6 +36,21 @@ html {
 ::-webkit-scrollbar-thumb {
   background: #0F172A;
   border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Dark Scrollbar for Code Editor and Terminal */
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: #0B1120;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 99px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* Progress bar stripe animation */
@@ -73,4 +89,14 @@ html {
 
 .pulse-active {
   animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+/* Subtle glowing border for IDE run button */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
 }

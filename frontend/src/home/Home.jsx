@@ -207,8 +207,8 @@ export default function Home({ username = "Aarav", onNavigate }) {
                       onClick={() => setSelectedCourseId(course.id)}
                       className={`w-full text-left p-3 rounded-xl border-2 border-[#0F172A] transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-white shadow-[4px_4px_0px_#0F172A] translate-x-1"
-                          : "bg-white/70 hover:bg-white hover:shadow-[2px_2px_0px_#0F172A]"
+                          ? "bg-white shadow-[4px_4px_0px_#0F172A] border-l-[6px] border-l-[#FFDF2B] translate-x-1"
+                          : "bg-white/80 hover:bg-white hover:shadow-[2px_2px_0px_#0F172A] hover:border-l-[4px] hover:border-l-slate-400"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
