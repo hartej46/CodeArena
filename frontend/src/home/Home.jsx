@@ -243,7 +243,7 @@ function GlobeIcon({ className = "w-4 h-4" }) {
 // ──────────────────────────────────────────────
 //  HOME PAGE COMPONENT
 // ──────────────────────────────────────────────
-export default function Home({ username = "Aarav" }) {
+export default function Home({ username = "Aarav", onNavigate }) {
   const [selectedLang, setSelectedLang] = useState("Python");
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const activeTrack = LANGUAGE_TRACKS[selectedLang];
@@ -287,25 +287,45 @@ export default function Home({ username = "Aarav" }) {
           <nav className="hidden md:flex items-center gap-1 text-sm font-semibold text-[#475569]">
             <a
               href="#home"
-              className="px-4 py-1.5 rounded-full bg-[#DBEAFE] text-[#1D4ED8] border border-[#93C5FD] transition-all hover:shadow-sm"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigate) onNavigate("home");
+                else window.location.hash = "home";
+              }}
+              className="px-4 py-1.5 rounded-full bg-[#DBEAFE] text-[#1D4ED8] border border-[#93C5FD] transition-all hover:shadow-sm font-bold cursor-pointer"
             >
               Home
             </a>
             <a
               href="#dashboard"
-              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigate) onNavigate("dashboard");
+                else window.location.hash = "dashboard";
+              }}
+              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all font-semibold cursor-pointer"
             >
               Dashboard
             </a>
             <a
               href="#ai-tutor"
-              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigate) onNavigate("ai-tutor");
+                else window.location.hash = "ai-tutor";
+              }}
+              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all font-semibold cursor-pointer"
             >
               AI Tutor
             </a>
             <a
               href="#polyglot"
-              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigate) onNavigate("polyglot");
+                else window.location.hash = "polyglot";
+              }}
+              className="px-4 py-1.5 rounded-full hover:text-[#0F172A] hover:bg-white/60 transition-all font-semibold cursor-pointer"
             >
               Polyglot Lab
             </a>
@@ -727,7 +747,10 @@ export default function Home({ username = "Aarav" }) {
                 </div>
 
                 {/* Action */}
-                <button className="w-full py-3 px-4 rounded-xl bg-[#DBEAFE] hover:bg-[#BFDBFE] text-[#1D4ED8] font-bold text-sm border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <button
+                  onClick={() => onNavigate?.("ai-tutor")}
+                  className="w-full py-3 px-4 rounded-xl bg-[#DBEAFE] hover:bg-[#BFDBFE] text-[#1D4ED8] font-bold text-sm border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
                   <BrainIcon className="w-4 h-4" />
                   Retry "Two Sum" with Socratic Hints
                   <ArrowRightIcon className="w-4 h-4" />
