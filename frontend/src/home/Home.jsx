@@ -156,7 +156,7 @@ export default function Home({ username = "Aarav", onNavigate }) {
 
   return (
     <div
-      className="min-h-screen text-[#0F172A] selection:bg-[#FFDF2B] flex flex-col"
+      className="dashboard-page min-h-screen text-[#0F172A] selection:bg-[#FFDF2B] flex flex-col"
       style={{
         backgroundColor: "#FAF9F0",
         backgroundImage: `
@@ -180,11 +180,11 @@ export default function Home({ username = "Aarav", onNavigate }) {
         username={username}
       />
 
-      <div className="flex-1 flex flex-col md:flex-row min-h-[calc(100vh-65px)]">
+      <div className="dashboard-layout flex-1 flex flex-col md:flex-row min-h-[calc(100vh-65px)]">
         {/* ═══════════════════════════════════════════
             LEFT SIDEBAR (Width: ~280px, Solid border)
             ═══════════════════════════════════════════ */}
-        <aside className="w-full md:w-72 shrink-0 bg-[#FAF9F0] border-r-2 border-[#0F172A] p-5 flex flex-col justify-between">
+        <aside className="dashboard-sidebar w-full md:w-72 shrink-0 bg-[#FAF9F0] border-r-2 border-[#0F172A] p-5 flex flex-col justify-between">
           <div className="space-y-6">
             {/* SECTION A: ENROLLED COURSES / ACTIVE TRACKS */}
             <div>
@@ -285,18 +285,15 @@ export default function Home({ username = "Aarav", onNavigate }) {
                 <p className="text-[10px] text-slate-500 font-bold mt-0.5">Pro Learner</p>
               </div>
             </div>
-            <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-300">
-              🔥 5d
-            </span>
           </div>
         </aside>
 
         {/* ═══════════════════════════════════════════
             MAIN CONTENT AREA (Right of Sidebar)
             ═══════════════════════════════════════════ */}
-        <main className="flex-1 p-5 sm:p-8 max-w-6xl overflow-y-auto">
+        <main className="dashboard-main flex-1 p-4 sm:p-6 max-w-6xl">
           {/* 1. USER GREETING BANNER */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DBEAFE] border border-[#0F172A] text-xs font-black text-[#1D4ED8] mb-2 shadow-[2px_2px_0px_#0F172A]">
                 <SparklesIcon className="w-3.5 h-3.5" />
@@ -322,7 +319,7 @@ export default function Home({ username = "Aarav", onNavigate }) {
           </div>
 
           {/* 2. ACTIVE LANGUAGE LEARNING PROGRESS SQUARE CARD */}
-          <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] p-6 mb-6">
+          <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] p-4 sm:p-5 mb-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-[#0F172A]/10">
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{currentCourse.icon}</span>
@@ -345,7 +342,7 @@ export default function Home({ username = "Aarav", onNavigate }) {
             </div>
 
             {/* Main Progress Bar */}
-            <div className="mt-5 mb-6">
+            <div className="mt-4 mb-4">
               <div className="flex justify-between text-xs font-black text-[#0F172A] mb-2">
                 <span>Course Completion Progress</span>
                 <span>{currentCourse.progress}% Completed</span>
@@ -393,7 +390,7 @@ export default function Home({ username = "Aarav", onNavigate }) {
           </div>
 
           {/* 3. COMPANION ANALYTICS (AI Self-Reliance & Bug DNA) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* AI SELF-RELIANCE SCORE */}
             <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[5px_5px_0px_#0F172A] p-5 flex flex-col justify-between">
               <div>

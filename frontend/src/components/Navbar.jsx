@@ -152,9 +152,8 @@ export default function Navbar({
             )}
           </div>
 
-          {/* Streak + Avatar Pill */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
-            <span className="text-xs font-black text-[#0F172A]" title="5 Day Streak">🔥 5</span>
+          {/* Avatar Pill */}
+          <div className="flex items-center px-2.5 py-1 rounded-xl bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
             <div className="w-6 h-6 rounded-lg bg-[#DBEAFE] border-2 border-[#0F172A] flex items-center justify-center font-black text-xs text-[#1D4ED8]">
               {username.charAt(0).toUpperCase()}
             </div>

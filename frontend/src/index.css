@@ -53,6 +53,56 @@ html {
   background: #475569;
 }
 
+/* Keep the desktop dashboard within one viewport without affecting other pages. */
+@media (min-width: 768px) {
+  .dashboard-page {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .dashboard-layout {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dashboard-sidebar,
+  .dashboard-main {
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+@media (min-width: 768px) and (max-height: 800px) {
+  .dashboard-main {
+    padding: 0.75rem 1rem;
+  }
+
+  .dashboard-main > .flex {
+    margin-bottom: 0.75rem;
+  }
+
+  .dashboard-main > .bg-white {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .dashboard-main > .bg-white .mt-4 {
+    margin-top: 0.75rem;
+  }
+
+  .dashboard-main > .bg-white .mb-4 {
+    margin-bottom: 0.75rem;
+  }
+
+  .dashboard-main > .grid {
+    gap: 0.75rem;
+  }
+
+  .dashboard-main > .grid > .bg-white {
+    padding: 0.75rem;
+  }
+}
+
 /* Progress bar stripe animation */
 @keyframes stripe-slide {
   0% { background-position: 0 0; }

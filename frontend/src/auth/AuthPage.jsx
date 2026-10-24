@@ -171,10 +171,6 @@ export default function AuthPage({ onLogin }) {
                 emoji: "🤖",
                 text: "4-Stage Socratic Hint Ladder (No Code Leaks)",
               },
-              {
-                emoji: "🔥",
-                text: "Active Streak & Self-Reliance Tracking",
-              },
             ].map((feature) => (
               <div
                 key={feature.text}
@@ -243,7 +239,7 @@ export default function AuthPage({ onLogin }) {
                 </h2>
                 <p className="text-sm text-[#475569] font-medium mt-1">
                   {activeTab === "signin"
-                    ? "Pick up your learning streak right where you left off."
+                    ? "Continue building real mastery at your own pace."
                     : "Start your 5-minute diagnostic and build real mastery."}
                 </p>
               </div>
