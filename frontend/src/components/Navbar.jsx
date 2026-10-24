@@ -50,12 +50,24 @@ function HomeIcon({ className = "w-4 h-4" }) {
   );
 }
 
+function LogoutIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
 export default function Navbar({
   activePage = "home",
   onNavigate,
   selectedLang = "Python",
   onSelectLang,
   username = "Aarav",
+  user,
+  onLogout,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
@@ -152,11 +164,27 @@ export default function Navbar({
             )}
           </div>
 
-          {/* Avatar Pill */}
-          <div className="flex items-center px-2.5 py-1 rounded-xl bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
-            <div className="w-6 h-6 rounded-lg bg-[#DBEAFE] border-2 border-[#0F172A] flex items-center justify-center font-black text-xs text-[#1D4ED8]">
-              {username.charAt(0).toUpperCase()}
+          {/* Avatar & User Controls */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
+              <div className="w-6 h-6 rounded-lg bg-[#DBEAFE] border-2 border-[#0F172A] flex items-center justify-center font-black text-xs text-[#1D4ED8]">
+                {username.charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden md:inline-block text-xs font-black text-[#0F172A] max-w-[110px] truncate">
+                {username}
+              </span>
             </div>
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Log Out"
+                className="p-1.5 rounded-xl bg-white hover:bg-red-50 text-[#475569] hover:text-[#EF4444] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer text-xs font-black flex items-center gap-1"
+              >
+                <LogoutIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline-block">Logout</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

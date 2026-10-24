@@ -138,7 +138,7 @@ const ENROLLED_COURSES = [
   }
 ];
 
-export default function Home({ username = "Aarav", onNavigate }) {
+export default function Home({ username = "Aarav", onNavigate, user, onLogout }) {
   const [selectedCourseId, setSelectedCourseId] = useState("Python");
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard | polyglot | settings
 
@@ -178,6 +178,8 @@ export default function Home({ username = "Aarav", onNavigate }) {
           if (match) setSelectedCourseId(match.id);
         }}
         username={username}
+        user={user}
+        onLogout={onLogout}
       />
 
       <div className="dashboard-layout flex-1 flex flex-col md:flex-row min-h-[calc(100vh-65px)]">
@@ -205,11 +207,10 @@ export default function Home({ username = "Aarav", onNavigate }) {
                     <button
                       key={course.id}
                       onClick={() => setSelectedCourseId(course.id)}
-                      className={`w-full text-left p-3 rounded-xl border-2 border-[#0F172A] transition-all cursor-pointer ${
-                        isSelected
+                      className={`w-full text-left p-3 rounded-xl border-2 border-[#0F172A] transition-all cursor-pointer ${isSelected
                           ? "bg-white shadow-[4px_4px_0px_#0F172A] border-l-[6px] border-l-[#FFDF2B] translate-x-1"
                           : "bg-white/80 hover:bg-white hover:shadow-[2px_2px_0px_#0F172A] hover:border-l-[4px] hover:border-l-slate-400"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
@@ -242,11 +243,10 @@ export default function Home({ username = "Aarav", onNavigate }) {
               <nav className="space-y-1.5">
                 <button
                   onClick={() => setActiveTab("dashboard")}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black border-2 border-[#0F172A] transition-all cursor-pointer ${
-                    activeTab === "dashboard"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black border-2 border-[#0F172A] transition-all cursor-pointer ${activeTab === "dashboard"
                       ? "bg-[#FFDF2B] text-[#0F172A] shadow-[2px_2px_0px_#0F172A]"
                       : "bg-white text-[#475569] hover:text-[#0F172A] hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-2">
                     <CompassIcon className="w-4 h-4" />
@@ -276,15 +276,23 @@ export default function Home({ username = "Aarav", onNavigate }) {
 
           {/* User Profile Mini Footer */}
           <div className="mt-6 pt-4 border-t-2 border-[#0F172A]/10 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-black text-xs text-[#0F172A]">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="w-8 h-8 shrink-0 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-black text-xs text-[#0F172A]">
                 {username.charAt(0).toUpperCase()}
               </div>
-              <div>
-                <p className="text-xs font-black text-[#0F172A] leading-none">{username}</p>
-                <p className="text-[10px] text-slate-500 font-bold mt-0.5">Pro Learner</p>
+              <div className="overflow-hidden">
+                <p className="text-xs font-black text-[#0F172A] leading-none truncate">{username}</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5 truncate">{user?.email || "Pro Learner"}</p>
               </div>
             </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="text-[11px] font-black text-[#EF4444] hover:underline cursor-pointer shrink-0 ml-2"
+              >
+                Sign out
+              </button>
+            )}
           </div>
         </aside>
 
@@ -451,9 +459,8 @@ export default function Home({ username = "Aarav", onNavigate }) {
                           {bug.category} • Detected {bug.occurrences} times
                         </p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border border-[#0F172A] ${
-                        bug.severity === "Critical" ? "bg-rose-200 text-rose-900" : "bg-amber-200 text-amber-900"
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border border-[#0F172A] ${bug.severity === "Critical" ? "bg-rose-200 text-rose-900" : "bg-amber-200 text-amber-900"
+                        }`}>
                         {bug.severity}
                       </span>
                     </div>

@@ -631,6 +631,8 @@ export default function AITutor({
   onNavigate,
   initialLanguage = "Python",
   username = "Aarav",
+  user,
+  onLogout,
 }) {
   // ── State for Chat Sessions ──
   const [chats, setChats] = useState(INITIAL_CHATS);
@@ -959,6 +961,8 @@ export default function AITutor({
           }
         }}
         username={username}
+        user={user}
+        onLogout={onLogout}
       />
 
       {/* ── Main Split-Screen Workspace ── */}

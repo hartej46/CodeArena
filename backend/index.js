@@ -1,5 +1,9 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const authRoutes = require('./src/routes/authRoutes');
+const courseRoutes = require('./src/routes/courseRoutes');
+const dashboardRoutes = require('./src/routes/dashboardRoutes');
+const chatRoutes = require('./src/routes/chatRoutes');
 const aiRoutes = require('./src/routes/aiRoutes');
 const runRoutes = require('./src/routes/runRoutes');
 
@@ -28,7 +32,8 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     status: 'online',
     endpoints: {
-      health: 'GET /api/ai/health',
+      health: 'GET /api/health',
+      auth: 'POST /api/auth/google, POST /api/auth/login, POST /api/auth/register, GET /api/auth/me',
       chat: 'POST /api/ai/chat',
       evaluate: 'POST /api/ai/evaluate',
       run: 'POST /api/run',
@@ -37,7 +42,15 @@ app.get('/', (req, res) => {
   });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
 // Mount Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/courses', courseRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api', runRoutes);
 
