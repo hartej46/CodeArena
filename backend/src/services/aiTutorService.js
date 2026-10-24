@@ -15,9 +15,58 @@ function numberLines(code) {
 }
 
 /**
- * Builds the Socratic Chat system prompt
+ * Extracts and synthesizes the last 2-3 core conversation turns into structured memory
  */
-function buildSocraticChatPrompt({ language, lesson, task, currentCode, hintLevel = 1 }) {
+function extractCoreConversationMemory(history, currentPrompt = '') {
+  if (!Array.isArray(history) || history.length === 0) {
+    return '(No previous conversation context. This is the start of the session.)';
+  }
+
+  // Filter out any trailing duplicate message matching current prompt
+  const cleanPrompt = String(currentPrompt || '').trim().toLowerCase();
+  const filtered = history.filter((m, idx) => {
+    if (!m || typeof m.content !== 'string') return false;
+    const isLast = idx === history.length - 1;
+    if (isLast && m.role === 'user' && m.content.trim().toLowerCase() === cleanPrompt) {
+      return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    return '(No previous conversation context. This is the start of the session.)';
+  }
+
+  // Slice last 6 messages to get the last 2-3 complete prompt-response pairs
+  const recentSlice = filtered.slice(-6);
+  const memoryLines = [];
+  let turnNumber = 1;
+
+  for (let i = 0; i < recentSlice.length; i++) {
+    const msg = recentSlice[i];
+    if (msg.role === 'user') {
+      const nextMsg = recentSlice[i + 1];
+      const assistantText = nextMsg && nextMsg.role === 'assistant' ? nextMsg.content : '';
+      const userText = msg.content.length > 180 ? `${msg.content.slice(0, 180)}...` : msg.content;
+      const botText = assistantText ? (assistantText.length > 180 ? `${assistantText.slice(0, 180)}...` : assistantText) : '(no response recorded)';
+
+      memoryLines.push(
+        `- Turn ${turnNumber}: Student asked: "${userText}"\n  Tutor answered: "${botText}"`
+      );
+      turnNumber++;
+      if (assistantText) i++; // Skip paired assistant turn
+    }
+  }
+
+  return memoryLines.length > 0
+    ? memoryLines.join('\n')
+    : '(No previous substantive user prompts.)';
+}
+
+/**
+ * Builds the Socratic Chat system prompt with conversation memory
+ */
+function buildSocraticChatPrompt({ language, lesson, task, currentCode, hintLevel = 1, memoryContext = '' }) {
   const numbered = numberLines(currentCode);
 
   return `You are the Socratic AI Tutor on "CodeArena", a multi-language programming mastery platform.
@@ -30,18 +79,26 @@ Student's Current Editor Code (with 1-based line numbers for reference):
 ${numbered}
 --- CODE END ---
 
-## SOCRATIC TEACHING GUARDRAILS (MANDATORY & STRICT):
-1. **NO SPOILERS / NO DIRECT CODE SOLUTIONS**:
+## CONVERSATION MEMORY (Context from Previous 2-3 Core Prompts):
+${memoryContext}
+
+## SOCRATIC TEACHING GUARDRAILS & MEMORY RETENTION:
+1. **CONVERSATION CONTINUITY (MANDATORY)**:
+   - You have access to the student's previous 2-3 prompts above in CONVERSATION MEMORY.
+   - Build directly upon the concepts, bugs, or questions discussed in those previous turns.
+   - If the student refers back to an earlier question (e.g., "why didn't that work?", "can you explain that again?", "what should I do next?"), understand what they mean from memory without asking them to re-explain.
+   - Do NOT repeat questions or explanations you already gave in previous turns.
+2. **NO SPOILERS / NO DIRECT CODE SOLUTIONS**:
    - NEVER write the complete working program or function for the student.
    - If the student directly asks "give me the code" or "just write it for me", politely decline: "I'm here to help you solve it yourself! Let's break down where the logic is hanging up."
-2. **SOCRATIC METHOD ONLY**:
+3. **SOCRATIC METHOD ONLY**:
    - Ask guiding questions that lead the learner to observe their own misconceptions.
    - Target the conceptual bug or symptom (e.g., "What value does 'i' have when the condition is checked for the third time?").
-3. **PROGRESSIVE HINTING (Current hint level: ${hintLevel})**:
+4. **PROGRESSIVE HINTING (Current hint level: ${hintLevel})**:
    - Level 1 (Nudge): Ask a question regarding the symptom or mental model.
    - Level 2 (Line Reference): Point to the specific line number where the assumption breaks and explain why.
    - Level 3 (Micro-MCQ): Offer a quick 3-option multiple-choice question to solidify the concept.
-4. **LENGTH**: Keep your "message" friendly, supportive, and under 120 words.
+5. **LENGTH**: Keep your "message" friendly, supportive, and under 120 words.
 
 ## OUTPUT FORMAT (STRICT):
 You must reply with ONLY a single, valid JSON object. No Markdown code fences, no surrounding chatter.
@@ -278,28 +335,43 @@ function sanitizeEvaluationOutput(parsed) {
 }
 
 /**
- * Handle POST /api/ai/chat
+ * Handle POST /api/ai/chat with conversation memory
  */
 async function handleChat({ prompt, currentCode, language = 'Python', lesson = 'Coding', task = '', history = [], hintLevel = 1 }) {
+  const currentPrompt = prompt || 'Please review my current code and provide a hint.';
+  const memoryContext = extractCoreConversationMemory(history, currentPrompt);
+
   const systemPrompt = buildSocraticChatPrompt({
     language,
     lesson,
     task,
     currentCode,
     hintLevel,
+    memoryContext,
   });
 
-  const recentHistory = Array.isArray(history)
-    ? history.slice(-6).map((msg) => ({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: typeof msg.content === 'string' ? msg.content : '',
-      }))
+  // Filter out any trailing message identical to currentPrompt
+  const cleanPrompt = currentPrompt.trim().toLowerCase();
+  const cleanHistory = Array.isArray(history)
+    ? history.filter((m, idx) => {
+        if (!m || typeof m.content !== 'string') return false;
+        const isLast = idx === history.length - 1;
+        if (isLast && m.role === 'user' && m.content.trim().toLowerCase() === cleanPrompt) {
+          return false;
+        }
+        return true;
+      })
     : [];
+
+  const recentHistory = cleanHistory.slice(-6).map((msg) => ({
+    role: msg.role === 'assistant' ? 'assistant' : 'user',
+    content: typeof msg.content === 'string' ? msg.content : '',
+  }));
 
   const messages = [
     { role: 'system', content: systemPrompt },
     ...recentHistory,
-    { role: 'user', content: prompt || 'Please review my current code and provide a hint.' },
+    { role: 'user', content: currentPrompt },
   ];
 
   let rawReply = '';

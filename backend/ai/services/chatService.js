@@ -62,6 +62,43 @@ function sanitizeTutorResponse(parsed, rawReply) {
   return fallback;
 }
 
+function extractCoreMemory(history, currentPrompt = '') {
+  if (!Array.isArray(history) || history.length === 0) {
+    return '(No previous conversation context. This is the start of the session.)';
+  }
+
+  const cleanPrompt = String(currentPrompt || '').trim().toLowerCase();
+  const filtered = history.filter((m, idx) => {
+    if (!m || typeof m.content !== 'string') return false;
+    const isLast = idx === history.length - 1;
+    return !(isLast && m.role === 'user' && m.content.trim().toLowerCase() === cleanPrompt);
+  });
+
+  if (filtered.length === 0) return '(No previous conversation context.)';
+
+  const recentSlice = filtered.slice(-6);
+  const memoryLines = [];
+  let turnNumber = 1;
+
+  for (let i = 0; i < recentSlice.length; i++) {
+    const msg = recentSlice[i];
+    if (msg.role === 'user') {
+      const nextMsg = recentSlice[i + 1];
+      const assistantText = nextMsg && nextMsg.role === 'assistant' ? nextMsg.content : '';
+      const userText = msg.content.length > 180 ? `${msg.content.slice(0, 180)}...` : msg.content;
+      const botText = assistantText ? (assistantText.length > 180 ? `${assistantText.slice(0, 180)}...` : assistantText) : '';
+
+      memoryLines.push(
+        `- Turn ${turnNumber}: Student asked: "${userText}"${botText ? ` -> Tutor guided: "${botText}"` : ''}`
+      );
+      turnNumber++;
+      if (assistantText) i++;
+    }
+  }
+
+  return memoryLines.length > 0 ? memoryLines.join('\n') : '(No previous user prompts.)';
+}
+
 async function chat(input = {}) {
   let rawReply = '';
   try {
@@ -72,23 +109,40 @@ async function chat(input = {}) {
       code = '',
       lastOutput = '',
       message = '',
+      prompt = '',
       history = [],
     } = input;
 
-    const systemPrompt = getTutorPrompt({ language, lesson, task, code, lastOutput });
+    const currentPrompt = (typeof message === 'string' && message.trim()) ? message.trim() : (typeof prompt === 'string' ? prompt.trim() : '');
+    const memoryContext = extractCoreMemory(history, currentPrompt);
 
-    // Keep chat history short: send only the last ~6 messages
-    const recentHistory = Array.isArray(history)
-      ? history.slice(-6).map((msg) => ({
-          role: msg.role === 'assistant' ? 'assistant' : 'user',
-          content: typeof msg.content === 'string' ? msg.content : '',
-        }))
+    const systemPrompt = getTutorPrompt({
+      language,
+      lesson,
+      task,
+      code,
+      lastOutput,
+      memoryContext,
+    });
+
+    const cleanPrompt = currentPrompt.toLowerCase();
+    const cleanHistory = Array.isArray(history)
+      ? history.filter((m, idx) => {
+          if (!m || typeof m.content !== 'string') return false;
+          const isLast = idx === history.length - 1;
+          return !(isLast && m.role === 'user' && m.content.trim().toLowerCase() === cleanPrompt);
+        })
       : [];
+
+    const recentHistory = cleanHistory.slice(-6).map((msg) => ({
+      role: msg.role === 'assistant' ? 'assistant' : 'user',
+      content: typeof msg.content === 'string' ? msg.content : '',
+    }));
 
     const messages = [
       { role: 'system', content: systemPrompt },
       ...recentHistory,
-      { role: 'user', content: typeof message === 'string' ? message : '' },
+      { role: 'user', content: currentPrompt || 'Please review my current code and provide a hint.' },
     ];
 
     // Use lower temperature for JSON adherence
