@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* === Neo-Brutalist CodeArena Design System === */
+
+/* Google Fonts — Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
+/* Base layer overrides */
+* {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+code, .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Selection style */
+::selection {
+  background-color: #FFDF2B;
+  color: #0F172A;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF9F0;
+}
+::-webkit-scrollbar-thumb {
+  background: #0F172A;
+  border-radius: 99px;
+}
+
+/* Progress bar stripe animation */
+@keyframes stripe-slide {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+
+.progress-stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 8px,
+    rgba(15, 23, 42, 0.08) 8px,
+    rgba(15, 23, 42, 0.08) 16px
+  );
+  background-size: 40px 40px;
+  animation: stripe-slide 1s linear infinite;
+}
+
+/* Subtle float animation for cards */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Pulse glow for active items */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 3px 3px 0px #0F172A; }
+  50% { box-shadow: 3px 3px 0px #0F172A, 0 0 12px rgba(255, 223, 43, 0.3); }
+}
+
+.pulse-active {
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
