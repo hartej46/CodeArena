@@ -9,6 +9,7 @@ const FALLBACK_TUTOR = {
   issue: {},
   example: {},
   next_step: {},
+  roadmap: {},
 };
 
 function sanitizeTutorResponse(parsed, rawReply) {
@@ -26,6 +27,10 @@ function sanitizeTutorResponse(parsed, rawReply) {
       parsed.next_step && typeof parsed.next_step === 'object' && !Array.isArray(parsed.next_step)
         ? parsed.next_step
         : {};
+    const roadmap =
+      parsed.roadmap && typeof parsed.roadmap === 'object' && !Array.isArray(parsed.roadmap)
+        ? parsed.roadmap
+        : {};
 
     const result = {
       message,
@@ -33,6 +38,7 @@ function sanitizeTutorResponse(parsed, rawReply) {
       issue,
       example,
       next_step,
+      roadmap,
     };
 
     // Allows string-based consumers to treat the result as a string if needed

@@ -1,18 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 
 // ──────────────────────────────────────────────
-//  Configurable Dummy URLs (Axios endpoints)
+//  Configurable Endpoints (Axios)
 // ──────────────────────────────────────────────
-// URL 1: When user clicks "Submit Code" in the Code Editor (sends CODE ONLY)
-export const DUMMY_CODE_SUBMIT_URL = "/api/code/submit";
-
-// URL 2: When user submits prompt in AI Chat (sends PROMPT + CODE)
-export const DUMMY_AI_CHAT_URL = "/api/ai/chat";
+export const AI_CHAT_ENDPOINT = "/api/ai/chat";
+export const DIRECT_BACKEND_URL = "http://localhost:5000/api/ai/chat";
 
 // ──────────────────────────────────────────────
-//  Starter Code Templates for Languages
+//  Starter Code Templates
 // ──────────────────────────────────────────────
 const CODE_TEMPLATES = {
   Python: `# Two Sum Problem
@@ -50,81 +47,207 @@ function twoSum(nums, target) {
   return [];
 }
 
-// Test your code
 const nums = [2, 7, 11, 15];
 const target = 9;
-console.log("Result:", twoSum(nums, target)); // Expected: [0, 1]
+console.log("Result:", twoSum(nums, target));
 `,
-  "C++": `// Two Sum Problem
-#include <iostream>
-#include <vector>
-#include <unordered_map>
-
-using namespace std;
-
-vector<int> twoSum(vector<int>& nums, int target) {
-    unordered_map<int, int> seen;
-    for (int i = 0; i < nums.size(); i++) {
-        int complement = target - nums[i];
-        if (seen.find(complement) != seen.end()) {
-            return {seen[complement], i};
-        }
-        seen[nums[i]] = i;
-    }
-    return {};
-}
-
-int main() {
-    vector<int> nums = {2, 7, 11, 15};
-    int target = 9;
-    vector<int> result = twoSum(nums, target);
-    cout << "Result: [" << result[0] << ", " << result[1] << "]" << endl;
-    return 0;
-}
-`,
-  Java: `// Two Sum Problem
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Arrays;
-
-public class Main {
-    public static int[] twoSum(int[] nums, int target) {
-        Map<Integer, Integer> map = new HashMap<>();
-        for (int i = 0; i < nums.length; i++) {
-            int complement = target - nums[i];
-            if (map.containsKey(complement)) {
-                return new int[] { map.get(complement), i };
-            }
-            map.put(nums[i], i);
-        }
-        return new int[] {};
-    }
-
-    public static void main(String[] args) {
-        int[] nums = {2, 7, 11, 15};
-        int target = 9;
-        int[] result = twoSum(nums, target);
-        System.out.println("Result: " + Arrays.toString(result));
-    }
-}
-`
 };
 
 const FILE_EXTENSIONS = {
   Python: "solution.py",
   JavaScript: "solution.js",
-  "C++": "solution.cpp",
-  Java: "Main.java"
 };
 
 // ──────────────────────────────────────────────
-//  Inline SVG Icons (Zero External Dependencies)
+//  Initial Chat Sessions History
 // ──────────────────────────────────────────────
-function SparklesIcon({ className = "w-4 h-4" }) {
+const INITIAL_CHATS = [
+  {
+    id: "chat-two-sum",
+    title: "Two Sum Debugging Session",
+    language: "Python",
+    timestamp: "10 mins ago",
+    currentCode: `def two_sum(nums, target):
+    seen = {}
+    for i, num in enumerate(nums):
+        complement = target - num
+        if complement in seen:
+            return [seen[complement], i]
+        seen[num] = i
+    return []
+
+print(two_sum([2, 7, 11, 15], 9))`,
+    messages: [
+      {
+        id: "m1",
+        role: "assistant",
+        content:
+          "Welcome Aarav! I'm your **Socratic AI Tutor** for **Two Sum Debugging** 🚀\n\nI have active visibility into your editor code. What edge cases or logic points would you like to verify before running?",
+        timestamp: "10:40 AM",
+        hintLevel: 1,
+      },
+      {
+        id: "m2",
+        role: "user",
+        content: "Why do we check if complement is in seen before storing seen[num] = i?",
+        attachedCodeLength: 184,
+        timestamp: "10:42 AM",
+      },
+      {
+        id: "m3",
+        role: "assistant",
+        content:
+          "Great observation! Let's think about what would happen if a number could accidentally match with itself.\n\nIf you have `nums = [3, 2, 4]` and `target = 6`, what would occur at `i = 0` if we inserted `3` into the hashmap before checking if `6 - 3 = 3` exists?",
+        lineReference: {
+          line: 5,
+          severity: "warning",
+          message: "Check order: checking membership before inserting prevents self-pairing.",
+        },
+        microMcq: {
+          question: "If we store seen[num] before checking, what index pair would [3, 2, 4] with target=6 return?",
+          options: [
+            "[0, 0] (The same element twice)",
+            "[0, 2] (Correct pair)",
+            "Empty list []",
+          ],
+          correctIndex: 0,
+          explanation: "Checking beforehand prevents an element from matching with itself!",
+        },
+        hintLevel: 2,
+        timestamp: "10:43 AM",
+      },
+    ],
+  },
+  {
+    id: "chat-js-async",
+    title: "JS Async & Promises Debugging",
+    language: "JavaScript",
+    timestamp: "1 hour ago",
+    currentCode: `async function fetchUserData(userId) {
+  try {
+    const res = await fetch(\`/api/users/\${userId}\`);
+    if (!res.ok) throw new Error("User not found");
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error("Fetch error:", err.message);
+    return null;
+  }
+}
+
+fetchUserData(42).then(console.log);`,
+    messages: [
+      {
+        id: "js-m1",
+        role: "assistant",
+        content:
+          "Welcome to **JavaScript Async & Promises Debugging** ⚡\n\nI can see your async/await handler. How does error propagation work when awaiting a rejected Promise?",
+        timestamp: "09:30 AM",
+        hintLevel: 1,
+      },
+      {
+        id: "js-m2",
+        role: "user",
+        content: "What happens if I forget the try/catch around an awaited promise?",
+        attachedCodeLength: 280,
+        timestamp: "09:32 AM",
+      },
+      {
+        id: "js-m3",
+        role: "assistant",
+        content:
+          "If an awaited Promise rejects without an enclosing try/catch block, what does the enclosing async function return to its caller?",
+        microMcq: {
+          question: "What does an unhandled rejection inside an async function produce?",
+          options: [
+            "A rejected Promise that bubbles up to the caller or unhandledrejection event",
+            "It automatically returns null and continues synchronous execution",
+            "The browser immediately terminates all JS event loop queues",
+          ],
+          correctIndex: 0,
+          explanation: "Async functions always return Promises, so an uncaught throw rejects the returned Promise!",
+        },
+        hintLevel: 2,
+        timestamp: "09:34 AM",
+      },
+    ],
+  },
+  {
+    id: "chat-recursion",
+    title: "Python Recursion Help",
+    language: "Python",
+    timestamp: "Yesterday",
+    currentCode: `def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+print(factorial(5))`,
+    messages: [
+      {
+        id: "rec-m1",
+        role: "assistant",
+        content:
+          "Hello! Welcome to your **Python Recursion Help** session 🐍\n\nWe're focusing on base cases and call-stack unwinding. How can I guide your reasoning?",
+        timestamp: "Yesterday",
+        hintLevel: 1,
+      },
+    ],
+  },
+  {
+    id: "chat-js-closures",
+    title: "JavaScript Closures & Lexical Scope",
+    language: "JavaScript",
+    timestamp: "2 days ago",
+    currentCode: `function createCounter(initial = 0) {
+  let count = initial;
+  return {
+    increment: () => ++count,
+    decrement: () => --count,
+    get: () => count,
+  };
+}
+
+const counter = createCounter(5);
+console.log(counter.increment()); // 6`,
+    messages: [
+      {
+        id: "clos-m1",
+        role: "assistant",
+        content:
+          "Welcome to **JavaScript Closures & Lexical Scope** ⚡\n\nNotice how the returned methods retain access to the enclosed `count` variable. What happens if multiple counters are instantiated?",
+        timestamp: "2 days ago",
+        hintLevel: 1,
+      },
+    ],
+  },
+];
+
+// ──────────────────────────────────────────────
+//  Inline SVG Icons (Zero Missing Dependencies)
+// ──────────────────────────────────────────────
+function PlusIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function ChatIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z" />
-      <path d="M5 3v4M3 5h4M19 17v4M17 19h4" />
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   );
 }
@@ -138,21 +261,35 @@ function SendIcon({ className = "w-4 h-4" }) {
   );
 }
 
-function PlayIcon({ className = "w-4 h-4" }) {
+function CodeBracketIcon({ className = "w-4 h-4" }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <polygon points="5 3 19 12 5 21 5 3" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
     </svg>
   );
 }
 
-function TrashIcon({ className = "w-4 h-4" }) {
+function SparklesIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function ChevronUpIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15" />
     </svg>
   );
 }
@@ -174,6 +311,15 @@ function CheckIcon({ className = "w-4 h-4" }) {
   );
 }
 
+function ShieldCheckIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
 function RefreshIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -185,102 +331,109 @@ function RefreshIcon({ className = "w-4 h-4" }) {
   );
 }
 
-function LightbulbIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18h6" />
-      <path d="M10 22h4" />
-      <path d="M12 2a7 7 0 0 0-7 7c0 2.5 1.25 4.5 2.5 6h9c1.25-1.5 2.5-3.5 2.5-6a7 7 0 0 0-7-7z" />
-    </svg>
-  );
-}
-
-function BookOpenIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    </svg>
-  );
-}
-
-function BugIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="8" height="14" x="8" y="6" rx="4" />
-      <path d="m19 7-3 2" />
-      <path d="m5 7 3 2" />
-      <path d="m19 19-3-2" />
-      <path d="m5 19 3-2" />
-      <path d="M20 13h-4" />
-      <path d="M4 13h4" />
-      <path d="m10 4 1 2" />
-      <path d="m14 4-1 2" />
-    </svg>
-  );
-}
-
-function CodeBracketIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="16 18 22 12 16 6" />
-      <polyline points="8 6 2 12 8 18" />
-    </svg>
-  );
-}
-
-function TerminalIcon({ className = "w-4 h-4" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="4 17 10 11 4 5" />
-      <line x1="12" y1="19" x2="20" y2="19" />
-    </svg>
-  );
-}
-
 // ──────────────────────────────────────────────
-//  Language Definitions
-// ──────────────────────────────────────────────
-const LANGUAGES = [
-  { id: "Python", name: "Python", icon: "🐍" },
-  { id: "JavaScript", name: "JavaScript", icon: "⚡" },
-  { id: "C++", name: "C++", icon: "⚙️" },
-  { id: "Java", name: "Java", icon: "☕" },
-];
-
-// ──────────────────────────────────────────────
-//  Suggested Prompts
+//  Suggested Prompts for Fast Socratic Inquiries
 // ──────────────────────────────────────────────
 const SUGGESTED_PROMPTS = [
   {
     title: "Explain recursion simply",
-    description: "Break down base cases with an analogy.",
+    query: "Can you explain recursion simply using an intuitive analogy and show where the base case fits in?",
     icon: "🔄",
-    mode: "explain",
-    query: "Can you explain recursion simply? Use an intuitive analogy and show how the base case prevents an infinite stack overflow."
   },
   {
-    title: "Help me debug my code",
-    description: "Socratically locate logic errors in the editor.",
+    title: "Help me debug my loop",
+    query: "Please inspect my current code and guide me through finding any loop boundary or logic issues step by step without giving away the full answer.",
     icon: "🐞",
-    mode: "debug",
-    query: "Please inspect my current code in the editor on the right and guide me through debugging it step by step without giving away the full answer."
   },
   {
-    title: "Teach me arrays",
-    description: "Master contiguous memory & random access.",
-    icon: "📊",
-    mode: "explain",
-    query: "Can you teach me how arrays work under the hood? Explain memory layout, index access time complexity, and traversal patterns."
+    title: "Analyze time complexity",
+    query: "What is the Big-O Time and Space Complexity of my current approach, and how could it be optimized?",
+    icon: "⏱️",
   },
   {
-    title: "Give me a DSA practice problem",
-    description: "Tackle a problem with Socratic hints ready.",
-    icon: "⚔️",
-    mode: "hint",
-    query: "Give me a classic coding problem for my active language. State the problem with example test cases and ask for my approach first!"
-  }
+    title: "Test edge cases",
+    query: "What edge cases (e.g. empty inputs, duplicates, negatives) should I test against my current code?",
+    icon: "🧪",
+  },
 ];
+
+// ──────────────────────────────────────────────
+//  Micro-MCQ Interactive Card Component
+// ──────────────────────────────────────────────
+function MicroMcqCard({ microMcq }) {
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
+
+  if (!microMcq || !microMcq.options || microMcq.options.length === 0) {
+    return null;
+  }
+
+  const isCorrect = selectedIdx === microMcq.correctIndex;
+
+  return (
+    <div className="mt-3 p-4 rounded-xl border-2 border-[#0F172A] bg-[#FAF9F0] shadow-[3px_3px_0px_#0F172A]">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#FFDF2B] border border-[#0F172A]">
+          MICRO-MCQ
+        </span>
+        <span className="text-xs font-black text-[#0F172A]">Socratic Concept Check</span>
+      </div>
+
+      <p className="text-xs sm:text-sm font-bold text-[#0F172A] mb-3">
+        {microMcq.question}
+      </p>
+
+      <div className="space-y-2">
+        {microMcq.options.map((option, idx) => {
+          let btnStyle = "bg-white border-[#0F172A] text-[#0F172A] hover:bg-slate-50";
+
+          if (hasAnswered) {
+            if (idx === microMcq.correctIndex) {
+              btnStyle = "bg-emerald-100 border-emerald-600 text-emerald-900 font-black shadow-[2px_2px_0px_#0F172A]";
+            } else if (idx === selectedIdx) {
+              btnStyle = "bg-rose-100 border-rose-500 text-rose-900 line-through";
+            } else {
+              btnStyle = "bg-white/60 border-slate-300 text-slate-400";
+            }
+          }
+
+          return (
+            <button
+              key={idx}
+              onClick={() => {
+                if (!hasAnswered) {
+                  setSelectedIdx(idx);
+                  setHasAnswered(true);
+                }
+              }}
+              disabled={hasAnswered}
+              className={`w-full text-left px-3 py-2 rounded-lg border-2 text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
+            >
+              <span>{option}</span>
+              {hasAnswered && idx === microMcq.correctIndex && (
+                <span className="text-emerald-700 font-black">✓ Correct</span>
+              )}
+              {hasAnswered && idx === selectedIdx && idx !== microMcq.correctIndex && (
+                <span className="text-rose-600 font-black">✗ Try Again</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {hasAnswered && (
+        <div className="mt-3 pt-2.5 border-t border-[#0F172A]/15 text-xs">
+          <p className={`font-bold ${isCorrect ? "text-emerald-800" : "text-amber-800"}`}>
+            {isCorrect ? "🎉 Well reasoned! " : "💡 Socratic insight: "}
+            <span className="font-medium text-[#0F172A]">
+              {microMcq.explanation || "Notice how this assumption directly drives your logic branch."}
+            </span>
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ──────────────────────────────────────────────
 //  Markdown & Code Block Renderer
@@ -299,8 +452,8 @@ function FormattedMessage({ content, language }) {
     }
     parts.push({
       type: "code",
-      lang: match[1].trim() || language.toLowerCase(),
-      code: match[2].trim()
+      lang: match[1].trim() || (language ? language.toLowerCase() : "code"),
+      code: match[2].trim(),
     });
     lastIndex = match.index + match[0].length;
   }
@@ -309,53 +462,52 @@ function FormattedMessage({ content, language }) {
     parts.push({ type: "text", text: content.slice(lastIndex) });
   }
 
-  const handleCopyCode = (code, index) => {
-    navigator.clipboard.writeText(code);
+  const handleCopy = (snippet, index) => {
+    navigator.clipboard.writeText(snippet);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const renderFormattedText = (raw) => {
-    const lines = raw.split("\n");
-    return lines.map((line, lineIdx) => {
+  const renderText = (raw) => {
+    return raw.split("\n").map((line, idx) => {
       const isBullet = line.trim().startsWith("- ") || line.trim().startsWith("* ");
-      const lineContent = isBullet ? line.trim().substring(2) : line;
+      const text = isBullet ? line.trim().substring(2) : line;
 
       const tokens = [];
       const inlineRegex = /(`[^`]+`|\*\*[^*]+\*\*)/g;
       let curr = 0;
       let inlineMatch;
 
-      while ((inlineMatch = inlineRegex.exec(lineContent)) !== null) {
+      while ((inlineMatch = inlineRegex.exec(text)) !== null) {
         if (inlineMatch.index > curr) {
-          tokens.push(lineContent.slice(curr, inlineMatch.index));
+          tokens.push(text.slice(curr, inlineMatch.index));
         }
         const matched = inlineMatch[0];
         if (matched.startsWith("`")) {
           tokens.push(
             <code
-              key={`code-${lineIdx}-${curr}`}
-              className="px-1.5 py-0.5 mx-0.5 rounded-md bg-[#FEF08A] text-[#0F172A] font-mono text-[12px] font-semibold border border-[#EAB308]/40"
+              key={`c-${idx}-${curr}`}
+              className="px-1.5 py-0.5 mx-0.5 rounded-md bg-[#FEF08A] text-[#0F172A] font-mono text-[11px] sm:text-xs font-semibold border border-[#EAB308]/40"
             >
               {matched.slice(1, -1)}
             </code>
           );
         } else if (matched.startsWith("**")) {
           tokens.push(
-            <strong key={`bold-${lineIdx}-${curr}`} className="font-extrabold text-[#0F172A]">
+            <strong key={`b-${idx}-${curr}`} className="font-black text-[#0F172A]">
               {matched.slice(2, -2)}
             </strong>
           );
         }
         curr = inlineMatch.index + matched.length;
       }
-      if (curr < lineContent.length) {
-        tokens.push(lineContent.slice(curr));
+      if (curr < text.length) {
+        tokens.push(text.slice(curr));
       }
 
       if (isBullet) {
         return (
-          <li key={lineIdx} className="ml-4 list-disc text-xs sm:text-sm leading-relaxed my-1">
+          <li key={idx} className="ml-4 list-disc text-xs sm:text-sm leading-relaxed my-1">
             {tokens}
           </li>
         );
@@ -363,23 +515,16 @@ function FormattedMessage({ content, language }) {
 
       if (line.startsWith("### ")) {
         return (
-          <h4 key={lineIdx} className="text-sm font-black text-[#0F172A] mt-2 mb-1">
+          <h4 key={idx} className="text-sm font-black text-[#0F172A] mt-2 mb-1">
             {line.replace("### ", "")}
           </h4>
         );
       }
-      if (line.startsWith("## ")) {
-        return (
-          <h3 key={lineIdx} className="text-base font-black text-[#0F172A] mt-3 mb-1.5">
-            {line.replace("## ", "")}
-          </h3>
-        );
-      }
 
       return line.trim() === "" ? (
-        <div key={lineIdx} className="h-1.5" />
+        <div key={idx} className="h-1.5" />
       ) : (
-        <p key={lineIdx} className="text-xs sm:text-sm leading-relaxed my-1">
+        <p key={idx} className="text-xs sm:text-sm leading-relaxed my-1">
           {tokens}
         </p>
       );
@@ -395,17 +540,10 @@ function FormattedMessage({ content, language }) {
               key={index}
               className="my-2 rounded-xl border-2 border-[#0F172A] bg-[#0F172A] text-[#F8FAFC] shadow-[2px_2px_0px_#0F172A] overflow-hidden"
             >
-              <div className="px-3 py-1.5 bg-[#1E293B] border-b border-slate-700/60 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#EF4444]" />
-                  <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-                  <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-                  <span className="ml-2 font-mono text-[10px] font-bold text-slate-300 uppercase">
-                    {part.lang}
-                  </span>
-                </div>
+              <div className="px-3 py-1.5 bg-[#1E293B] border-b border-slate-700/60 flex items-center justify-between text-[11px] font-mono">
+                <span className="font-bold text-slate-300 uppercase">{part.lang}</span>
                 <button
-                  onClick={() => handleCopyCode(part.code, index)}
+                  onClick={() => handleCopy(part.code, index)}
                   className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-600/50 cursor-pointer"
                 >
                   {copiedIndex === index ? (
@@ -430,226 +568,206 @@ function FormattedMessage({ content, language }) {
           );
         }
 
-        return <div key={index}>{renderFormattedText(part.text)}</div>;
+        return <div key={index}>{renderText(part.text)}</div>;
       })}
     </div>
   );
 }
 
 // ──────────────────────────────────────────────
-//  MAIN AI TUTOR (2 SECTIONS: CHAT + CODE EDITOR)
+//  MAIN AI TUTOR COMPONENT (PAGE 2)
 // ──────────────────────────────────────────────
 export default function AITutor({
   onNavigate,
   initialLanguage = "Python",
-  username = "Aarav"
+  username = "Aarav",
 }) {
-  const [selectedLang, setSelectedLang] = useState(initialLanguage);
+  // ── State for Chat Sessions ──
+  const [chats, setChats] = useState(INITIAL_CHATS);
+  const [activeChatId, setActiveChatId] = useState("chat-two-sum");
 
-  // ── Code Editor State ──
-  const [code, setCode] = useState(() => CODE_TEMPLATES[initialLanguage] || "");
-  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
-  const [codeSubmitResult, setCodeSubmitResult] = useState(null);
-  const [editorCopied, setEditorCopied] = useState(false);
-  const [showConsole, setShowConsole] = useState(true);
+  // Active chat session reference
+  const activeChat = useMemo(() => {
+    return chats.find((c) => c.id === activeChatId) || chats[0];
+  }, [chats, activeChatId]);
 
-  // ── AI Chat State ──
-  const [messages, setMessages] = useState([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "Hey there, coder! What are we learning today? 🚀\n\nI'm your **CodeArena Socratic AI Tutor**. As you type your code in the **Code Editor** on the right, I have direct visibility into your solution. Ask me for hints, edge-case debugging, or concept breakdowns!",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  // Active code being edited and evaluated alongside prompt
+  const [activeCode, setActiveCode] = useState(() => activeChat.currentCode || CODE_TEMPLATES[activeChat.language] || "");
+  const [selectedLang, setSelectedLang] = useState(activeChat.language || initialLanguage);
+
+  // When activeChatId changes, sync code & language
+  useEffect(() => {
+    if (activeChat) {
+      setActiveCode(activeChat.currentCode || CODE_TEMPLATES[activeChat.language] || "");
+      setSelectedLang(activeChat.language || "Python");
     }
-  ]);
+  }, [activeChatId]);
+
+  // ── Input & UI States ──
   const [promptInput, setPromptInput] = useState("");
-  const [isSubmittingPrompt, setIsSubmittingPrompt] = useState(false);
-  const [copiedMessageId, setCopiedMessageId] = useState(null);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCodeDrawerOpen, setIsCodeDrawerOpen] = useState(true); // Dual-Input Code Preview Drawer
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const messagesEndRef = useRef(null);
-  const codeTextareaRef = useRef(null);
-  const lineNumbersRef = useRef(null);
 
-  // Auto-scroll chat
+  // Auto-scroll chat on message change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isSubmittingPrompt]);
+  }, [activeChat?.messages, isSubmitting]);
 
-  // Update starter code when language changes if code hasn't been heavily modified
-  const handleLanguageChange = (lang) => {
-    setSelectedLang(lang);
-    if (!code || code === CODE_TEMPLATES[selectedLang]) {
-      setCode(CODE_TEMPLATES[lang] || "");
+  // ────────────────────────────────────────────
+  //  Action: "+ New Chat"
+  //  Initializes a brand new chat session and prepends to history list
+  // ────────────────────────────────────────────
+  const handleNewChat = () => {
+    const newId = `chat-${Date.now()}`;
+    const newChatNumber = chats.length + 1;
+    const starterCode = CODE_TEMPLATES[selectedLang] || CODE_TEMPLATES.Python;
+
+    const newChat = {
+      id: newId,
+      title: `New Socratic Session #${newChatNumber}`,
+      language: selectedLang,
+      timestamp: "Just now",
+      currentCode: starterCode,
+      messages: [
+        {
+          id: `welcome-${Date.now()}`,
+          role: "assistant",
+          content: `Hey there, ${username}! 🚀 Brand new Socratic chat session initialized.\n\nI have loaded your **${selectedLang}** code context in the workspace below. Type any question, paste a bug report, or ask for guidance!`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          hintLevel: 1,
+        },
+      ],
+    };
+
+    setChats((prev) => [newChat, ...prev]);
+    setActiveChatId(newId);
+    setActiveCode(starterCode);
+  };
+
+  // ────────────────────────────────────────────
+  //  Action: Delete a Chat Session
+  // ────────────────────────────────────────────
+  const handleDeleteChat = (idToDelete, e) => {
+    e.stopPropagation();
+    if (chats.length <= 1) {
+      alert("You need at least one active chat session.");
+      return;
+    }
+    const remaining = chats.filter((c) => c.id !== idToDelete);
+    setChats(remaining);
+    if (activeChatId === idToDelete) {
+      setActiveChatId(remaining[0].id);
     }
   };
 
-  // Synchronize line numbers scroll with code textarea scroll
-  const handleCodeScroll = () => {
-    if (codeTextareaRef.current && lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = codeTextareaRef.current.scrollTop;
-    }
-  };
-
-  // Generate line numbers
-  const lineCount = Math.max(code.split("\n").length, 1);
-  const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
-
-  // Reset code to boilerplate
-  const handleResetCode = () => {
-    setCode(CODE_TEMPLATES[selectedLang] || "");
-    setCodeSubmitResult(null);
-  };
-
-  // Copy code to clipboard
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(code);
-    setEditorCopied(true);
-    setTimeout(() => setEditorCopied(false), 2000);
-  };
-
-  // ══════════════════════════════════════════════════════════════
-  //  ACTION 1: SUBMIT CODE ONLY (Right Section Button -> Axios)
-  //  Hits DUMMY_CODE_SUBMIT_URL with ONLY the code + language
-  // ══════════════════════════════════════════════════════════════
-  const handleSubmitCode = async () => {
-    if (!code.trim() || isSubmittingCode) return;
-
-    setIsSubmittingCode(true);
-    setCodeSubmitResult(null);
-    setShowConsole(true);
-
-    try {
-      console.log(`[AXIOS POST -> ${DUMMY_CODE_SUBMIT_URL}] Submitting code only:`, {
-        language: selectedLang,
-        codeLength: code.length
-      });
-
-      // Axios call to server 1 (Code only)
-      const res = await axios.post(DUMMY_CODE_SUBMIT_URL, {
-        code: code,
-        language: selectedLang,
-        timestamp: new Date().toISOString()
-      });
-
-      setCodeSubmitResult({
-        success: true,
-        endpoint: DUMMY_CODE_SUBMIT_URL,
-        data: res.data,
-        timestamp: new Date().toLocaleTimeString(),
-        message: res.data.message || `Code submitted successfully to evaluation endpoint!`
-      });
-    } catch (err) {
-      console.error("Code submission error:", err);
-      // Fallback dummy confirmation if mock/offline
-      setCodeSubmitResult({
-        success: true,
-        endpoint: DUMMY_CODE_SUBMIT_URL,
-        timestamp: new Date().toLocaleTimeString(),
-        message: `✓ Code submitted to evaluation URL (${DUMMY_CODE_SUBMIT_URL})`,
-        data: {
-          status: "Accepted",
-          runtime: "35ms",
-          memory: "13.8 MB",
-          consoleOutput: `[Executed in ${selectedLang}]:\nCode successfully received by submission server!\nTest cases evaluated.`
-        }
-      });
-    } finally {
-      setIsSubmittingCode(false);
-    }
-  };
-
-  // ══════════════════════════════════════════════════════════════
-  //  ACTION 2: SUBMIT PROMPT + CODE (Left Section Button -> Axios)
-  //  Hits DUMMY_AI_CHAT_URL with PROMPT + ACTIVE CODE
-  // ══════════════════════════════════════════════════════════════
-  const handleSendPrompt = async (customPrompt = null, mode = "chat") => {
+  // ────────────────────────────────────────────
+  //  Action: Send Prompt + Code Context (Dual-Input)
+  // ────────────────────────────────────────────
+  const handleSendPrompt = async (customPrompt = null) => {
     const textToSend = customPrompt !== null ? customPrompt : promptInput;
-    if (!textToSend.trim() || isSubmittingPrompt) return;
+    if (!textToSend.trim() || isSubmitting) return;
 
-    const userMessage = {
+    const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
       content: textToSend.trim(),
-      attachedCodeLength: code.length,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      attachedCodeLength: activeCode.length,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    // Update active chat's messages locally
+    const updatedMessages = [...(activeChat.messages || []), userMsg];
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === activeChatId
+          ? { ...c, messages: updatedMessages, currentCode: activeCode }
+          : c
+      )
+    );
+
     setPromptInput("");
-    setIsSubmittingPrompt(true);
+    setIsSubmitting(true);
 
     try {
-      const formattedForApi = newMessages
-        .filter((m) => m.id !== "welcome")
-        .map((m) => ({
-          role: m.role,
-          content: m.content
-        }));
-
-      console.log(`[AXIOS POST -> ${DUMMY_AI_CHAT_URL}] Submitting prompt + code:`, {
-        prompt: textToSend.trim(),
-        codeSnippet: code.slice(0, 80) + "...",
-        language: selectedLang,
-        mode
-      });
-
-      // Axios call to server 2 (Prompt + Code)
-      const res = await axios.post(DUMMY_AI_CHAT_URL, {
-        prompt: textToSend.trim(),
-        code: code, // Sends the active code editor code along with the prompt!
-        language: selectedLang,
-        mode: mode,
-        messages: formattedForApi
-      });
-
-      const data = res.data;
-
-      if (data.success) {
-        const aiMessage = {
-          id: `ai-${Date.now()}`,
-          role: "assistant",
-          content: data.message,
-          provider: data.provider || "CodeArena AI",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-      } else {
-        // If no provider or API key is set yet, provide helpful Socratic message
-        const reply = data.error === "NO_API_KEY"
-          ? `💡 **Editor Code Received!**\n\nI have received your **${selectedLang} code** (${code.split("\n").length} lines) and prompt.\n\n*To enable live Gemini/OpenAI responses: configure your \`GEMINI_API_KEY\` in \`backend/.env\`.*`
-          : data.message || "Request completed.";
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `ai-${Date.now()}`,
-            role: "assistant",
-            content: reply,
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          }
-        ]);
+      // 1. Send Prompt + Current Code to backend AI route
+      let res;
+      try {
+        res = await axios.post(AI_CHAT_ENDPOINT, {
+          prompt: textToSend.trim(),
+          currentCode: activeCode,
+          language: selectedLang,
+          lesson: activeChat.title,
+          history: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+        });
+      } catch (proxyErr) {
+        console.warn("Proxy post failed, attempting direct backend port 5000...", proxyErr);
+        res = await axios.post(DIRECT_BACKEND_URL, {
+          prompt: textToSend.trim(),
+          currentCode: activeCode,
+          language: selectedLang,
+          lesson: activeChat.title,
+          history: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+        });
       }
+
+      const tutorData = res.data?.data || res.data;
+      const aiReplyText =
+        tutorData.message ||
+        tutorData.socraticResponse ||
+        (typeof tutorData === "string" ? tutorData : "I have inspected your code and prompt.");
+
+      const aiMsg = {
+        id: `ai-${Date.now()}`,
+        role: "assistant",
+        content: aiReplyText,
+        hintLevel: tutorData.hintLevel || 1,
+        lineReference: tutorData.lineReference || null,
+        microMcq: tutorData.microMcq || null,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === activeChatId
+            ? { ...c, messages: [...updatedMessages, aiMsg] }
+            : c
+        )
+      );
     } catch (err) {
-      console.error("AI chat error:", err);
-      // Friendly local fallback message
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          role: "assistant",
-          content: `🤖 **Code & Prompt Sent!**\n\nYour prompt along with your **${selectedLang} editor code** was dispatched to the AI server (\`${DUMMY_AI_CHAT_URL}\`).\n\n*Active Code Injected:* \`${FILE_EXTENSIONS[selectedLang]}\` (${lineCount} lines).`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        }
-      ]);
+      console.error("AI Tutor send error:", err);
+      // Fallback Socratic inquiry
+      const fallbackAiMsg = {
+        id: `ai-${Date.now()}`,
+        role: "assistant",
+        content: `💡 **Socratic Guidance & Code Evaluation:**\n\nI reviewed your **${selectedLang}** code (${activeCode.split("\n").length} lines) regarding: *"${textToSend.trim()}"*.\n\nTake a look at how your loop terminates. What is the value of your pointer/index at the final boundary?`,
+        microMcq: {
+          question: "When evaluating bounds, what check avoids an out-of-bounds error?",
+          options: [
+            "Check length boundaries (i < len) before accessing array[i]",
+            "Increment index inside the condition block",
+            "Wrap everything in an empty try/catch block",
+          ],
+          correctIndex: 0,
+          explanation: "Boundary checking before index access is fundamental across all languages!",
+        },
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === activeChatId
+            ? { ...c, messages: [...updatedMessages, fallbackAiMsg] }
+            : c
+        )
+      );
     } finally {
-      setIsSubmittingPrompt(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Keyboard shortcut: Enter sends prompt, Shift+Enter newline
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -657,47 +775,21 @@ export default function AITutor({
     }
   };
 
-  // Socratic Quick Mode buttons
-  const handleQuickAction = (mode) => {
-    let promptText;
-    switch (mode) {
-      case "hint":
-        promptText = `Can you look at my code in the editor and give me a subtle Socratic hint on what to improve or test next?`;
-        break;
-      case "explain":
-        promptText = `Can you explain the algorithmic concept behind this problem in simple terms with an analogy?`;
-        break;
-      case "debug":
-        promptText = `Please inspect my current code in the editor for any bugs, edge-cases, or syntax issues and guide me through fixing them.`;
-        break;
-      case "solution":
-        promptText = `I have attempted the solution. Please show the optimal reference solution in ${selectedLang} with Big-O Time & Space Complexity analysis.`;
-        break;
-      default:
-        promptText = `Help me with my code.`;
-    }
-    handleSendPrompt(promptText, mode);
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(activeCode);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
   };
 
-  // Clear chat
-  const confirmClearChat = () => {
-    setMessages([
-      {
-        id: "welcome",
-        role: "assistant",
-        content:
-          "Chat cleared! 🧹 What coding concept or problem would you like to explore next?",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      }
-    ]);
-    setShowClearConfirm(false);
+  const handleResetStarter = () => {
+    const starter = CODE_TEMPLATES[selectedLang] || "";
+    setActiveCode(starter);
+    setChats((prev) =>
+      prev.map((c) => (c.id === activeChatId ? { ...c, currentCode: starter } : c))
+    );
   };
 
-  const handleCopyMessage = (id, text) => {
-    navigator.clipboard.writeText(text);
-    setCopiedMessageId(id);
-    setTimeout(() => setCopiedMessageId(null), 2000);
-  };
+  const lineCount = Math.max(activeCode.split("\n").length, 1);
 
   return (
     <div
@@ -711,476 +803,378 @@ export default function AITutor({
         backgroundSize: "32px 32px",
       }}
     >
-      {/* ── Top Navbar ── */}
+      {/* ── Top Navigation Bar ── */}
       <Navbar
         activePage="ai-tutor"
         onNavigate={onNavigate}
         selectedLang={selectedLang}
-        onSelectLang={handleLanguageChange}
+        onSelectLang={(lang) => {
+          setSelectedLang(lang);
+          if (CODE_TEMPLATES[lang]) {
+            setActiveCode(CODE_TEMPLATES[lang]);
+          }
+        }}
         username={username}
       />
 
-      {/* ── Main Container ── */}
-      <main className="max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-6 flex-1 w-full flex flex-col">
+      {/* ── Main Split-Screen Workspace ── */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-[calc(100vh-65px)]">
         {/* ═══════════════════════════════════════════
-            TOP CONTROL BAR: LANGUAGE TABS & TOOLS
+            LEFT SIDEBAR: CHAT HISTORY & SESSIONS
+            Width: ~280px, Solid border
             ═══════════════════════════════════════════ */}
-        <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[4px_4px_0px_#0F172A] p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
-          {/* Language Selector */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="text-xs font-black text-[#0F172A] uppercase tracking-wider mr-1">
-              TRACK:
-            </span>
-            {LANGUAGES.map((lang) => {
-              const isSelected = selectedLang === lang.id;
+        <aside className="w-full md:w-72 shrink-0 bg-[#FAF9F0] border-r-2 border-[#0F172A] p-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            {/* 1. PROMINENT "+ NEW CHAT" BUTTON */}
+            <button
+              onClick={handleNewChat}
+              className="w-full py-3 px-4 rounded-xl bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] font-black text-sm border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>+ New Chat</span>
+            </button>
+
+            {/* 2. CHAT HISTORY SESSIONS LIST */}
+            <div>
+              <div className="flex items-center justify-between mb-2.5 px-1">
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#475569] flex items-center gap-1.5">
+                  <ChatIcon className="w-3.5 h-3.5 text-[#0F172A]" />
+                  Chat History
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-[#DBEAFE] text-[#1D4ED8] border border-[#0F172A]">
+                  {chats.length} Sessions
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-[calc(100vh-270px)] overflow-y-auto pr-1">
+                {chats.map((chat) => {
+                  const isActive = chat.id === activeChatId;
+                  return (
+                    <div
+                      key={chat.id}
+                      onClick={() => setActiveChatId(chat.id)}
+                      className={`group relative p-3 rounded-xl border-2 border-[#0F172A] transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-white shadow-[4px_4px_0px_#0F172A] translate-x-1"
+                          : "bg-white/70 hover:bg-white hover:shadow-[2px_2px_0px_#0F172A]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1.5 mb-1">
+                        <h4 className="text-xs font-black text-[#0F172A] line-clamp-1">
+                          {chat.title}
+                        </h4>
+                        {chats.length > 1 && (
+                          <button
+                            onClick={(e) => handleDeleteChat(chat.id, e)}
+                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 transition-opacity p-0.5"
+                            title="Delete session"
+                          >
+                            <TrashIcon className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mt-1">
+                        <span className="px-1.5 py-0.2 rounded bg-[#FAF9F0] border border-[#0F172A]/30 text-[#0F172A]">
+                          {chat.language || "Python"}
+                        </span>
+                        <span>{chat.timestamp || "Active"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Socratic Mode Badge Footer */}
+          <div className="mt-4 pt-3 border-t-2 border-[#0F172A]/10">
+            <div className="p-2.5 rounded-xl bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center gap-2">
+              <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="text-[11px] leading-tight">
+                <p className="font-black text-[#0F172A]">Socratic Guardrails</p>
+                <p className="text-[10px] text-slate-500 font-bold">Never gives away direct code</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ═══════════════════════════════════════════
+            RIGHT MAIN CHAT AREA (AI TUTOR WORKSPACE)
+            ═══════════════════════════════════════════ */}
+        <main className="flex-1 flex flex-col justify-between max-h-[calc(100vh-65px)] overflow-hidden">
+          {/* 1. CHAT HEADER */}
+          <div className="px-5 py-3.5 bg-white border-b-2 border-[#0F172A] flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-bold text-sm">
+                🤖
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-black text-[#0F172A]">
+                  {activeChat.title}
+                </h2>
+                <p className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
+                  <span>Track: {selectedLang}</span>
+                  <span>•</span>
+                  <span>{activeChat.messages?.length || 0} messages exchanged</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Socratic No-Spoiler Mode Active Badge */}
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#DBEAFE] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
+                <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-pulse" />
+                <span className="text-xs font-black text-[#1D4ED8]">
+                  Socratic No-Spoiler Mode Active
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CHAT MESSAGE FEED (Scrollable) */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            {activeChat.messages?.map((message) => {
+              const isAssistant = message.role === "assistant";
               return (
-                <button
-                  key={lang.id}
-                  onClick={() => handleLanguageChange(lang.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold border-2 transition-all cursor-pointer ${
-                    isSelected
-                      ? "bg-[#FFDF2B] text-[#0F172A] border-[#0F172A] shadow-[2px_2px_0px_#0F172A] scale-[1.02]"
-                      : "bg-[#FAF9F0] text-[#475569] border-[#0F172A]/20 hover:border-[#0F172A] hover:text-[#0F172A]"
+                <div
+                  key={message.id}
+                  className={`flex items-start gap-3 ${
+                    isAssistant ? "justify-start" : "justify-end"
                   }`}
                 >
-                  <span>{lang.icon}</span>
-                  <span>{lang.name}</span>
-                </button>
-              );
-            })}
-          </div>
+                  {isAssistant && (
+                    <div className="w-8 h-8 rounded-xl bg-[#DBEAFE] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-bold text-xs shrink-0 mt-1">
+                      🤖
+                    </div>
+                  )}
 
-          {/* Socratic Quick Prompts & Clear Chat */}
-          <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-1">
-              <button
-                onClick={() => handleQuickAction("hint")}
-                disabled={isSubmittingPrompt}
-                className="px-2.5 py-1 rounded-lg bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#CA8A04] text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <LightbulbIcon className="w-3 h-3" />
-                Hint
-              </button>
-              <button
-                onClick={() => handleQuickAction("explain")}
-                disabled={isSubmittingPrompt}
-                className="px-2.5 py-1 rounded-lg bg-[#DBEAFE] hover:bg-[#BFDBFE] text-[#1D4ED8] border border-[#93C5FD] text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <BookOpenIcon className="w-3 h-3" />
-                Explain
-              </button>
-              <button
-                onClick={() => handleQuickAction("debug")}
-                disabled={isSubmittingPrompt}
-                className="px-2.5 py-1 rounded-lg bg-[#FEE2E2] hover:bg-[#FECACA] text-[#B91C1C] border border-[#FCA5A5] text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <BugIcon className="w-3 h-3" />
-                Debug
-              </button>
-              <button
-                onClick={() => handleQuickAction("solution")}
-                disabled={isSubmittingPrompt}
-                className="px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-[#0F172A] border border-slate-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <CodeBracketIcon className="w-3 h-3" />
-                Solution
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowClearConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border-2 border-[#0F172A] text-xs font-bold text-[#EF4444] shadow-[2px_2px_0px_#0F172A] hover:bg-[#FEE2E2] transition-all cursor-pointer"
-            >
-              <TrashIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Clear Chat</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════
-            TWO-COLUMN WORKSPACE: LEFT CHAT, RIGHT CODE
-            ═══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 flex-1 items-stretch">
-          
-          {/* ──────────────────────────────────────────
-              LEFT SECTION: AI CHAT (PROMPT + CODE)
-              Submitting sends PROMPT + CODE via Axios
-              ────────────────────────────────────────── */}
-          <section className="bg-white border-2 border-[#0F172A] rounded-3xl shadow-[5px_5px_0px_#0F172A] overflow-hidden flex flex-col h-[740px]">
-            {/* Chat Titlebar */}
-            <div className="px-4 py-3 bg-[#F8FAFC] border-b-2 border-[#0F172A] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#DBEAFE] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center text-sm font-bold">
-                  🤖
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-black text-[#0F172A]">Socratic AI Tutor</h2>
-                    <span className="px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC] text-[10px] font-bold">
-                      Active in {selectedLang}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#64748B] font-medium hidden sm:block">
-                    Connected to Code Editor • Submits Prompt + Code
-                  </p>
-                </div>
-              </div>
-
-              {/* Endpoint Badge */}
-              <div className="flex items-center gap-1.5 bg-[#FAF9F0] px-2.5 py-1 rounded-full border border-[#0F172A]/20 text-[10px] font-mono font-bold text-[#475569]">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Axios: {DUMMY_AI_CHAT_URL}</span>
-              </div>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FAF9F0]/30">
-              {messages.map((message) => {
-                const isUser = message.role === "user";
-
-                return (
                   <div
-                    key={message.id}
-                    className={`flex items-start gap-2.5 ${
-                      isUser ? "flex-row-reverse" : "flex-row"
+                    className={`max-w-2xl rounded-2xl border-2 border-[#0F172A] p-4 transition-all ${
+                      isAssistant
+                        ? "bg-white shadow-[4px_4px_0px_#0F172A]"
+                        : "bg-[#FFDF2B] text-[#0F172A] shadow-[4px_4px_0px_#0F172A]"
                     }`}
                   >
-                    <div
-                      className={`w-8 h-8 rounded-xl border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center shrink-0 font-bold text-xs ${
-                        isUser ? "bg-[#FFDF2B] text-[#0F172A]" : "bg-[#DBEAFE] text-[#1D4ED8]"
-                      }`}
-                    >
-                      {isUser ? username.charAt(0).toUpperCase() : "🤖"}
+                    {/* Header inside message */}
+                    <div className="flex items-center justify-between gap-4 mb-2 pb-1.5 border-b border-[#0F172A]/15 text-[11px] font-bold">
+                      <span className="font-black text-[#0F172A] flex items-center gap-1">
+                        {isAssistant ? (
+                          <>
+                            <span>Socratic AI Tutor</span>
+                            {message.hintLevel && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] bg-[#FEF08A] border border-[#0F172A]/40">
+                                Hint Level {message.hintLevel}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span>{username}</span>
+                            <span className="px-1.5 py-0.2 rounded text-[10px] bg-white border border-[#0F172A]/40 font-mono">
+                              📎 Code Attached
+                            </span>
+                          </>
+                        )}
+                      </span>
+                      <span className="text-slate-500 font-mono text-[10px]">
+                        {message.timestamp}
+                      </span>
                     </div>
 
-                    <div
-                      className={`max-w-[85%] rounded-2xl border-2 border-[#0F172A] p-3.5 transition-all ${
-                        isUser
-                          ? "bg-[#0F172A] text-white shadow-[3px_3px_0px_#FFDF2B]"
-                          : "bg-white text-[#0F172A] shadow-[3px_3px_0px_#0F172A]"
-                      }`}
-                    >
-                      <div
-                        className={`flex items-center justify-between pb-1.5 mb-1.5 border-b text-[10px] font-bold ${
-                          isUser ? "border-slate-700 text-slate-300" : "border-slate-100 text-[#64748B]"
-                        }`}
-                      >
-                        <span className="font-mono">
-                          {isUser ? "You" : `AI Mentor (${selectedLang})`}
+                    {/* Line reference indicator if any */}
+                    {message.lineReference && (
+                      <div className="mb-2.5 p-2 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-900 font-bold flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded bg-amber-200 border border-amber-400 font-mono text-[10px]">
+                          Line {message.lineReference.line}
                         </span>
-                        <div className="flex items-center gap-2">
-                          <span>{message.timestamp}</span>
-                          {!isUser && (
-                            <button
-                              onClick={() => handleCopyMessage(message.id, message.content)}
-                              className="hover:text-[#0F172A] cursor-pointer"
-                              title="Copy response"
-                            >
-                              {copiedMessageId === message.id ? (
-                                <span className="text-emerald-600 font-bold">✓ Copied</span>
-                              ) : (
-                                <CopyIcon className="w-3 h-3" />
-                              )}
-                            </button>
-                          )}
-                        </div>
+                        <span>{message.lineReference.message}</span>
                       </div>
+                    )}
 
-                      {isUser ? (
-                        <div>
-                          <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                            {message.content}
-                          </p>
-                          {message.attachedCodeLength > 0 && (
-                            <div className="mt-2 pt-1.5 border-t border-slate-700/80 flex items-center gap-1.5 text-[10px] font-mono text-[#FDE047]">
-                              <span>📎</span>
-                              <span>Attached current editor code ({message.attachedCodeLength} chars)</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <FormattedMessage content={message.content} language={selectedLang} />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                    {/* Content formatted */}
+                    <FormattedMessage content={message.content} language={selectedLang} />
 
-              {/* Loading Indicator */}
-              {isSubmittingPrompt && (
-                <div className="flex items-start gap-2.5">
-                  <div className="w-8 h-8 rounded-xl border-2 border-[#0F172A] bg-[#DBEAFE] text-[#1D4ED8] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-bold text-xs shrink-0 animate-pulse">
-                    🤖
+                    {/* Micro-MCQ interactive widget if attached */}
+                    {message.microMcq && <MicroMcqCard microMcq={message.microMcq} />}
                   </div>
-                  <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[2px_2px_0px_#0F172A] p-3 flex items-center gap-2.5">
-                    <div className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-bounce" style={{ animationDelay: "300ms" }} />
+
+                  {!isAssistant && (
+                    <div className="w-8 h-8 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-black text-xs shrink-0 mt-1">
+                      {username.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-xs font-bold text-[#475569] font-mono">
-                      Evaluating prompt & editor code...
-                    </span>
-                  </div>
+                  )}
                 </div>
-              )}
+              );
+            })}
 
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Suggested Prompts Pills */}
-            {messages.length <= 3 && (
-              <div className="px-3 py-2 bg-[#FAF9F0] border-t-2 border-[#0F172A]/10">
-                <p className="text-[10px] font-bold text-[#475569] uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <span>⚡</span> Suggested questions:
-                </p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {SUGGESTED_PROMPTS.map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSendPrompt(prompt.query, prompt.mode)}
-                      disabled={isSubmittingPrompt}
-                      className="p-2 rounded-xl bg-white hover:bg-[#FEF9C3] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] text-left transition-all cursor-pointer text-xs"
-                    >
-                      <div className="flex items-center gap-1 font-bold text-[#0F172A] truncate">
-                        <span>{prompt.icon}</span>
-                        <span className="truncate">{prompt.title}</span>
-                      </div>
-                    </button>
-                  ))}
+            {/* Loading Indicator */}
+            {isSubmitting && (
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#DBEAFE] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-bold text-xs shrink-0 animate-pulse">
+                  🤖
+                </div>
+                <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[3px_3px_0px_#0F172A] p-3 flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span className="text-xs font-bold text-[#475569] font-mono">
+                    Analyzing prompt & editor code context...
+                  </span>
                 </div>
               </div>
             )}
 
-            {/* Chat Input & Submit Prompt Button */}
-            <div className="p-3 bg-white border-t-2 border-[#0F172A]">
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* 3. SUGGESTED PROMPTS (Quick chips if conversation is short) */}
+          {(activeChat.messages?.length || 0) <= 3 && (
+            <div className="px-4 py-2 bg-[#FAF9F0] border-t-2 border-[#0F172A]/10 shrink-0">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#475569] shrink-0">
+                  ⚡ Quick:
+                </span>
+                {SUGGESTED_PROMPTS.map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSendPrompt(prompt.query)}
+                    disabled={isSubmitting}
+                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-[#FEF9C3] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] font-bold text-[11px] text-[#0F172A] shrink-0 flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <span>{prompt.icon}</span>
+                    <span>{prompt.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════
+              4. BOTTOM DUAL-INPUT BAR
+              (Prompt Input + Code Snippet Context Preview + Send Button)
+              ═══════════════════════════════════════════ */}
+          <div className="p-4 bg-white border-t-2 border-[#0F172A] shrink-0">
+            <div className="max-w-4xl mx-auto space-y-3">
+              {/* CODE SNIPPET CONTEXT PREVIEW BOX (Collapsible / Editable) */}
+              <div className="rounded-xl border-2 border-[#0F172A] bg-[#0F172A] text-white overflow-hidden shadow-[3px_3px_0px_#0F172A]">
+                {/* Header bar of code snippet context */}
+                <div className="px-3 py-2 bg-[#1E293B] border-b border-slate-700 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CodeBracketIcon className="w-4 h-4 text-[#38BDF8]" />
+                    <span className="text-xs font-mono font-bold text-slate-200">
+                      Code Snippet Context ({FILE_EXTENSIONS[selectedLang]})
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      • {lineCount} lines • Evaluated alongside prompt
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleResetStarter}
+                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold border border-slate-600 transition-colors cursor-pointer flex items-center gap-1"
+                      title="Reset boilerplate"
+                    >
+                      <RefreshIcon className="w-2.5 h-2.5" />
+                      <span>Reset</span>
+                    </button>
+                    <button
+                      onClick={handleCopyCode}
+                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold border border-slate-600 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      {codeCopied ? (
+                        <>
+                          <CheckIcon className="w-2.5 h-2.5 text-emerald-400" />
+                          <span className="text-emerald-300">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <CopyIcon className="w-2.5 h-2.5" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setIsCodeDrawerOpen(!isCodeDrawerOpen)}
+                      className="px-2 py-0.5 rounded bg-[#38BDF8]/20 hover:bg-[#38BDF8]/30 text-[#38BDF8] text-[10px] font-mono font-bold border border-[#38BDF8]/40 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      {isCodeDrawerOpen ? (
+                        <>
+                          <span>Hide Editor</span>
+                          <ChevronUpIcon className="w-3 h-3" />
+                        </>
+                      ) : (
+                        <>
+                          <span>Edit Code</span>
+                          <ChevronDownIcon className="w-3 h-3" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Code Textarea Drawer */}
+                {isCodeDrawerOpen && (
+                  <div className="p-2.5 bg-[#0B1120]">
+                    <textarea
+                      value={activeCode}
+                      onChange={(e) => setActiveCode(e.target.value)}
+                      rows={5}
+                      spellCheck="false"
+                      className="w-full bg-transparent text-[#F8FAFC] font-mono text-xs leading-[1.6] resize-y focus:outline-none overflow-auto whitespace-pre selection:bg-[#38BDF8]/30"
+                      placeholder={`Write or paste your ${selectedLang} code here to be evaluated...`}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* CHAT PROMPT INPUT BOX + VIBRANT YELLOW SEND BUTTON */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSendPrompt();
                 }}
-                className="flex flex-col gap-2"
+                className="flex flex-col sm:flex-row items-stretch gap-2"
               >
-                <div className="relative rounded-2xl border-2 border-[#0F172A] bg-[#FAF9F0] shadow-[2px_2px_0px_#0F172A] focus-within:border-[#1D4ED8] focus-within:shadow-[3px_3px_0px_#1D4ED8] transition-all">
+                <div className="relative flex-1 rounded-xl border-2 border-[#0F172A] bg-[#FAF9F0] shadow-[3px_3px_0px_#0F172A] focus-within:border-[#1D4ED8] transition-all">
                   <textarea
                     value={promptInput}
                     onChange={(e) => setPromptInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={`Ask AI a question or request hints on your code...`}
+                    placeholder="Ask AI a question or request Socratic guidance on your code..."
                     rows={2}
-                    disabled={isSubmittingPrompt}
+                    disabled={isSubmitting}
                     className="w-full px-3 py-2 bg-transparent text-xs sm:text-sm text-[#0F172A] placeholder:text-[#94A3B8] resize-none focus:outline-none font-medium"
                   />
-                  <div className="px-3 pb-1.5 flex items-center justify-between text-[10px] text-[#64748B]">
-                    <span className="font-mono bg-[#DBEAFE] text-[#1D4ED8] px-1.5 py-0.5 rounded border border-[#93C5FD]">
-                      📎 Code Attached: {lineCount} lines ({selectedLang})
+                  <div className="px-3 pb-1 text-[10px] text-[#64748B] flex justify-between">
+                    <span>Shift+Enter for newline</span>
+                    <span className="font-mono text-[#1D4ED8]">
+                      📎 Code attached: {lineCount} lines ({selectedLang})
                     </span>
-                    <span className="text-slate-400">Shift+Enter for newline</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-[#475569] font-medium">
-                    Hits: <code className="font-mono text-[#1D4ED8]">{DUMMY_AI_CHAT_URL}</code>
-                  </span>
-
-                  {/* Submit Prompt Button */}
-                  <button
-                    type="submit"
-                    disabled={isSubmittingPrompt || !promptInput.trim()}
-                    className={`px-5 py-2 rounded-xl border-2 border-[#0F172A] font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer ${
-                      isSubmittingPrompt || !promptInput.trim()
-                        ? "bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed"
-                        : "bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px]"
-                    }`}
-                  >
-                    <span>Send Prompt + Code</span>
-                    <SendIcon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {/* Send Button styled in vibrant yellow (#FFDF2B) with hard shadow */}
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !promptInput.trim()}
+                  className={`px-6 py-3 rounded-xl border-2 border-[#0F172A] font-black text-sm flex items-center justify-center gap-2 transition-all cursor-pointer self-stretch sm:self-auto shrink-0 ${
+                    isSubmitting || !promptInput.trim()
+                      ? "bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed"
+                      : "bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] shadow-[4px_4px_0px_#0F172A] hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px]"
+                  }`}
+                >
+                  <span>Send Prompt</span>
+                  <SendIcon className="w-4 h-4" />
+                </button>
               </form>
             </div>
-          </section>
-
-          {/* ──────────────────────────────────────────
-              RIGHT SECTION: CODE EDITOR / IDE
-              Submitting sends CODE ONLY via Axios
-              ────────────────────────────────────────── */}
-          <section className="bg-[#0F172A] text-white border-2 border-[#0F172A] rounded-3xl shadow-[5px_5px_0px_#0F172A] overflow-hidden flex flex-col h-[740px]">
-            {/* Editor Top Bar */}
-            <div className="px-4 py-3 bg-[#1E293B] border-b-2 border-[#0F172A] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#EF4444]" />
-                  <span className="w-3 h-3 rounded-full bg-[#F59E0B]" />
-                  <span className="w-3 h-3 rounded-full bg-[#10B981]" />
-                </div>
-                <div className="ml-2 px-2.5 py-0.5 rounded-md bg-[#0F172A] border border-slate-700 flex items-center gap-1.5 text-xs font-mono font-bold text-slate-200">
-                  <CodeBracketIcon className="w-3.5 h-3.5 text-[#38BDF8]" />
-                  <span>{FILE_EXTENSIONS[selectedLang]}</span>
-                </div>
-                <span className="text-[11px] font-mono text-slate-400">
-                  {lineCount} lines
-                </span>
-              </div>
-
-              {/* Editor Controls */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleResetCode}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Reset code to default boilerplate"
-                >
-                  <RefreshIcon className="w-3 h-3" />
-                  <span>Reset</span>
-                </button>
-                <button
-                  onClick={handleCopyCode}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Copy code to clipboard"
-                >
-                  {editorCopied ? (
-                    <>
-                      <CheckIcon className="w-3 h-3 text-emerald-400" />
-                      <span className="text-emerald-300">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="w-3 h-3" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Code Textarea with Line Numbers */}
-            <div className="flex-1 flex overflow-hidden relative bg-[#0F172A]">
-              {/* Line Numbers Gutter */}
-              <div
-                ref={lineNumbersRef}
-                className="w-12 py-3 bg-[#0B1120] text-slate-500 font-mono text-xs select-none text-right pr-2.5 overflow-hidden border-r border-slate-800 leading-[1.6]"
-              >
-                {lineNumbers.map((num) => (
-                  <div key={num} className="h-[21px]">
-                    {num}
-                  </div>
-                ))}
-              </div>
-
-              {/* Actual Code Textarea */}
-              <textarea
-                ref={codeTextareaRef}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onScroll={handleCodeScroll}
-                spellCheck="false"
-                className="flex-1 py-3 px-3 bg-transparent text-[#F8FAFC] font-mono text-xs sm:text-sm leading-[1.6] resize-none focus:outline-none overflow-auto whitespace-pre selection:bg-[#38BDF8]/30"
-                placeholder={`Write or paste your ${selectedLang} code here...`}
-              />
-            </div>
-
-            {/* Console / Output Drawer */}
-            {showConsole && codeSubmitResult && (
-              <div className="border-t-2 border-slate-800 bg-[#0B1120] p-3 text-xs font-mono max-h-40 overflow-y-auto">
-                <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-800 text-slate-400">
-                  <div className="flex items-center gap-1.5">
-                    <TerminalIcon className="w-3.5 h-3.5 text-[#FFDF2B]" />
-                    <span className="font-bold text-slate-200">Execution Server Response</span>
-                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.2 rounded">
-                      HTTP 200 OK
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400">{codeSubmitResult.timestamp}</span>
-                </div>
-                <p className="text-emerald-400 font-bold">{codeSubmitResult.message}</p>
-                {codeSubmitResult.data?.results && (
-                  <div className="mt-1 text-[11px] text-slate-300 space-y-0.5">
-                    <p>Status: <span className="text-[#38BDF8] font-bold">{codeSubmitResult.data.results.status}</span> | Runtime: {codeSubmitResult.data.results.runtime} | Memory: {codeSubmitResult.data.results.memory}</p>
-                    <pre className="mt-1 p-2 bg-[#020617] rounded text-slate-300 overflow-x-auto text-[11px]">
-                      {codeSubmitResult.data.results.consoleOutput}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Bottom Action Bar: SUBMIT CODE BUTTON (Sends CODE ONLY) */}
-            <div className="p-3 bg-[#1E293B] border-t-2 border-[#0F172A] flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowConsole(!showConsole)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1 border border-slate-700 cursor-pointer"
-                >
-                  <TerminalIcon className="w-3.5 h-3.5" />
-                  <span>{showConsole ? "Hide Output" : "View Output"}</span>
-                </button>
-                <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
-                  URL: <code className="text-[#38BDF8]">{DUMMY_CODE_SUBMIT_URL}</code>
-                </span>
-              </div>
-
-              {/* Submit Code Button (hits DUMMY_CODE_SUBMIT_URL) */}
-              <button
-                onClick={handleSubmitCode}
-                disabled={isSubmittingCode || !code.trim()}
-                className={`px-5 py-2 rounded-xl border-2 border-[#0F172A] font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer ${
-                  isSubmittingCode || !code.trim()
-                    ? "bg-slate-700 text-slate-400 border-slate-600 cursor-not-allowed"
-                    : "bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px]"
-                }`}
-              >
-                {isSubmittingCode ? (
-                  <>
-                    <span className="w-3 h-3 rounded-full border-2 border-[#0F172A] border-t-transparent animate-spin" />
-                    <span>Submitting Code...</span>
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon className="w-3.5 h-3.5" />
-                    <span>Submit Code</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </section>
-
-        </div>
-      </main>
-
-      {/* ── Clear Chat Modal ── */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white border-2 border-[#0F172A] rounded-2xl shadow-[6px_6px_0px_#0F172A] max-w-sm w-full p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#FEE2E2] border-2 border-[#0F172A] flex items-center justify-center text-[#EF4444]">
-                <TrashIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-[#0F172A]">Clear Conversation?</h3>
-                <p className="text-xs text-[#64748B] mt-0.5">
-                  This will reset your conversation context with the AI Tutor.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 rounded-xl border-2 border-[#0F172A] bg-white hover:bg-slate-50 font-bold text-xs text-[#0F172A] transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmClearChat}
-                className="px-4 py-2 rounded-xl border-2 border-[#0F172A] bg-[#EF4444] hover:bg-[#DC2626] text-white font-bold text-xs shadow-[2px_2px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] transition-all cursor-pointer"
-              >
-                Clear Chat
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   );
 }

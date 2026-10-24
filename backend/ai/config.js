@@ -1,43 +1,52 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-dotenv.config({ path: path.resolve(__dirname, '.env') });
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+// Load environment files
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-const provider = process.env.AI_PROVIDER;
-const googleKey = process.env.GOOGLE_API_KEY;
-const googleModel = process.env.GOOGLE_MODEL;
-const ollamaUrl = process.env.OLLAMA_URL;
-const ollamaModel = process.env.OLLAMA_MODEL;
+const config = {
+  get provider() {
+    return process.env.AI_PROVIDER || 'ollama';
+  },
+  get googleKey() {
+    return process.env.GOOGLE_API_KEY;
+  },
+  get googleModel() {
+    return process.env.GOOGLE_MODEL;
+  },
+  get ollamaUrl() {
+    return process.env.OLLAMA_URL || 'http://localhost:11434';
+  },
+  get ollamaModel() {
+    return process.env.OLLAMA_MODEL || 'gemma4:e4b';
+  },
+  get jevModel() {
+    return process.env.JEV_MODEL || 'llama3.2:latest';
+  },
 
-function validateConfig() {
-  const missing = [];
-  const activeProvider = process.env.AI_PROVIDER || provider;
+  validateConfig() {
+    const missing = [];
+    const activeProvider = this.provider;
 
-  if (!activeProvider) {
-    missing.push('AI_PROVIDER');
+    if (!activeProvider) {
+      missing.push('AI_PROVIDER');
+      return missing;
+    }
+
+    if (activeProvider === 'google') {
+      if (!this.googleKey) missing.push('GOOGLE_API_KEY');
+      if (!this.googleModel) missing.push('GOOGLE_MODEL');
+    } else if (activeProvider === 'ollama') {
+      // ollamaUrl has a default fallback, so only check ollamaModel
+      if (!this.ollamaModel) missing.push('OLLAMA_MODEL');
+    } else {
+      missing.push(`AI_PROVIDER (unsupported: ${activeProvider})`);
+    }
+
     return missing;
-  }
-
-  if (activeProvider === 'google') {
-    if (!process.env.GOOGLE_API_KEY) missing.push('GOOGLE_API_KEY');
-    if (!process.env.GOOGLE_MODEL) missing.push('GOOGLE_MODEL');
-  } else if (activeProvider === 'ollama') {
-    if (!process.env.OLLAMA_URL) missing.push('OLLAMA_URL');
-    if (!process.env.OLLAMA_MODEL) missing.push('OLLAMA_MODEL');
-  } else {
-    missing.push(`AI_PROVIDER (unsupported: ${activeProvider})`);
-  }
-
-  return missing;
-}
-
-module.exports = {
-  provider,
-  googleKey,
-  googleModel,
-  ollamaUrl,
-  ollamaModel,
-  validateConfig,
+  },
 };
+
+module.exports = config;
