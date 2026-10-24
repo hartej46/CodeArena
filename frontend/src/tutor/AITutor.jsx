@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
-import { TOKEN_STORAGE_KEY, getStoredToken } from "../auth/authApi";
+import { TOKEN_STORAGE_KEY, getStoredToken, safeStorage } from "../auth/authApi";
 
 export const AI_CHAT_ENDPOINT = "/api/ai/chat";
 export const DIRECT_BACKEND_URL = "http://localhost:5001/api/ai/chat";
@@ -12,48 +12,11 @@ export const DIRECT_EVALUATE_ENDPOINT = "http://localhost:5001/api/ai/evaluate";
 export const LESSON_TASK_ENDPOINT = "/api/ai/lesson-task";
 
 // ──────────────────────────────────────────────
-//  Starter Code Templates
+//  Starter Code Templates (Blank by default; restored from where left off)
 // ──────────────────────────────────────────────
 const CODE_TEMPLATES = {
-  Python: `# Two Sum Problem
-# Given an array of integers nums and an integer target,
-# return indices of the two numbers such that they add up to target.
-
-def two_sum(nums, target):
-    seen = {}
-    for i, num in enumerate(nums):
-        complement = target - num
-        if complement in seen:
-            return [seen[complement], i]
-        seen[num] = i
-    return []
-
-# Test your code
-if __name__ == "__main__":
-    nums = [2, 7, 11, 15]
-    target = 9
-    result = two_sum(nums, target)
-    print(f"Result: {result}") # Expected: [0, 1]
-`,
-  JavaScript: `// Two Sum Problem
-// Return indices of the two numbers such that they add up to target.
-
-function twoSum(nums, target) {
-  const map = new Map();
-  for (let i = 0; i < nums.length; i++) {
-    const complement = target - nums[i];
-    if (map.has(complement)) {
-      return [map.get(complement), i];
-    }
-    map.set(nums[i], i);
-  }
-  return [];
-}
-
-const nums = [2, 7, 11, 15];
-const target = 9;
-console.log("Result:", twoSum(nums, target));
-`,
+  Python: "",
+  JavaScript: "",
 };
 
 const FILE_EXTENSIONS = {
@@ -65,14 +28,15 @@ const FILE_EXTENSIONS = {
 //  Starter Session Helper (Real Backend Persistence)
 // ──────────────────────────────────────────────
 function createStarterSession(language = "Python", username = "Learner", lessonTitle = null) {
-  const starterCode = CODE_TEMPLATES[language] || CODE_TEMPLATES.Python;
   const title = lessonTitle || (language + " Socratic Practice");
+  // Restore code from where user left it last time, or blank
+  const savedLastCode = safeStorage.getItem(`codearena_last_code_${language}`) || "";
   return {
     id: "local-" + Date.now(),
     title,
     language,
     timestamp: "Just now",
-    currentCode: starterCode,
+    currentCode: savedLastCode,
     messages: [
       {
         id: "welcome-" + Date.now(),
@@ -515,8 +479,13 @@ export default function AITutor({
         const sessions = res.data?.data || [];
         if (sessions.length > 0) {
           const formatted = sessions.map((s) => {
-            const lastCode = s.messages && s.messages.slice().reverse().find((m) => m.codeSnapshot)?.codeSnapshot;
+            const lastCodeFromDb = s.messages && s.messages.slice().reverse().find((m) => m.codeSnapshot)?.codeSnapshot;
+            const savedLocalCode = safeStorage.getItem(`codearena_session_code_${s.id}`);
             const lang = s.course?.language || initialLanguage || "Python";
+            const effectiveCode =
+              savedLocalCode !== null && savedLocalCode !== undefined
+                ? savedLocalCode
+                : (lastCodeFromDb || "");
             return {
               id: s.id,
               title: s.title || (lang + " Socratic Session"),
@@ -524,7 +493,7 @@ export default function AITutor({
               timestamp: s.lastMessageAt
                 ? new Date(s.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                 : "Recently",
-              currentCode: lastCode || CODE_TEMPLATES[lang] || CODE_TEMPLATES.Python,
+              currentCode: effectiveCode,
               messages: (s.messages || []).map((m) => {
                 const payload = m.aiPayload && typeof m.aiPayload === "object" ? m.aiPayload : {};
                 return {
@@ -584,17 +553,44 @@ export default function AITutor({
     );
   }, [chats, activeChatId, initialLanguage, username, initialLesson]);
 
-  // Active code being edited and evaluated alongside prompt
-  const [activeCode, setActiveCode] = useState(() => activeChat.currentCode || CODE_TEMPLATES[activeChat.language] || "");
+  // Active code being edited and evaluated alongside prompt (persists where left off)
+  const [activeCode, setActiveCode] = useState(() => {
+    const saved = safeStorage.getItem(`codearena_session_code_${activeChat.id}`);
+    if (saved !== null && saved !== undefined) return saved;
+    if (activeChat.currentCode !== undefined && activeChat.currentCode !== null) return activeChat.currentCode;
+    return safeStorage.getItem(`codearena_last_code_${activeChat.language || initialLanguage}`) || "";
+  });
   const [selectedLang, setSelectedLang] = useState(activeChat.language || initialLanguage);
 
-  // When activeChatId changes, sync code & language
+  // When activeChatId changes, restore code from where user left it last time
   useEffect(() => {
     if (activeChat) {
-      setActiveCode(activeChat.currentCode || CODE_TEMPLATES[activeChat.language] || "");
+      const saved = safeStorage.getItem(`codearena_session_code_${activeChat.id}`);
+      const codeToUse =
+        saved !== null && saved !== undefined
+          ? saved
+          : (activeChat.currentCode !== undefined && activeChat.currentCode !== null)
+          ? activeChat.currentCode
+          : (safeStorage.getItem(`codearena_last_code_${activeChat.language || selectedLang}`) || "");
+
+      setActiveCode(codeToUse);
       setSelectedLang(activeChat.language || "Python");
     }
   }, [activeChatId]);
+
+  // Handle all code updates with immediate persistence so code is always where it was left
+  const handleCodeChange = (newCode) => {
+    setActiveCode(newCode);
+    if (activeChatId) {
+      safeStorage.setItem(`codearena_session_code_${activeChatId}`, newCode);
+      setChats((prev) =>
+        prev.map((c) => (c.id === activeChatId ? { ...c, currentCode: newCode } : c))
+      );
+    }
+    if (selectedLang) {
+      safeStorage.setItem(`codearena_last_code_${selectedLang}`, newCode);
+    }
+  };
 
   // ── Input & UI States ──
   const [promptInput, setPromptInput] = useState("");
@@ -633,7 +629,7 @@ export default function AITutor({
       const start = e.target.selectionStart;
       const end = e.target.selectionEnd;
       const newCode = activeCode.substring(0, start) + "  " + activeCode.substring(end);
-      setActiveCode(newCode);
+      handleCodeChange(newCode);
       requestAnimationFrame(() => {
         if (textareaRef.current) {
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
@@ -653,7 +649,7 @@ export default function AITutor({
   const handleNewChat = () => {
     const newId = "local-" + Date.now();
     const newChatNumber = chats.length + 1;
-    const starterCode = CODE_TEMPLATES[selectedLang] || CODE_TEMPLATES.Python;
+    const starterCode = "";
 
     const newChat = {
       id: newId,
@@ -665,7 +661,7 @@ export default function AITutor({
         {
           id: "welcome-" + Date.now(),
           role: "assistant",
-          content: "Hey there, " + username + "! 🚀 Brand new Socratic chat session initialized.\n\nI have loaded your **" + selectedLang + "** code context in the workspace below. Type any question, paste a bug report, or ask for guidance!",
+          content: "Hey there, " + username + "! 🚀 Brand new Socratic chat session initialized.\n\nI have loaded your **" + selectedLang + "** workspace. Type any question, paste a problem or bug report, or ask for guidance!",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           hintLevel: 1,
         },
@@ -675,6 +671,7 @@ export default function AITutor({
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newId);
     setActiveCode(starterCode);
+    safeStorage.setItem(`codearena_session_code_${newId}`, starterCode);
   };
 
   // ────────────────────────────────────────────
@@ -786,6 +783,8 @@ export default function AITutor({
         })
       );
       if (returnedSessionId && activeChatId.startsWith("local-")) {
+        safeStorage.setItem(`codearena_session_code_${returnedSessionId}`, activeCode);
+        safeStorage.removeItem(`codearena_session_code_${activeChatId}`);
         setActiveChatId(returnedSessionId);
       }
     } catch (err) {
@@ -834,11 +833,16 @@ export default function AITutor({
   };
 
   const handleResetStarter = () => {
-    const starter = CODE_TEMPLATES[selectedLang] || "";
-    setActiveCode(starter);
-    setChats((prev) =>
-      prev.map((c) => (c.id === activeChatId ? { ...c, currentCode: starter } : c))
-    );
+    setActiveCode("");
+    if (activeChatId) {
+      safeStorage.setItem(`codearena_session_code_${activeChatId}`, "");
+      setChats((prev) =>
+        prev.map((c) => (c.id === activeChatId ? { ...c, currentCode: "" } : c))
+      );
+    }
+    if (selectedLang) {
+      safeStorage.setItem(`codearena_last_code_${selectedLang}`, "");
+    }
   };
 
   // ────────────────────────────────────────────
@@ -982,8 +986,13 @@ export default function AITutor({
         selectedLang={selectedLang}
         onSelectLang={(lang) => {
           setSelectedLang(lang);
-          if (CODE_TEMPLATES[lang]) {
-            setActiveCode(CODE_TEMPLATES[lang]);
+          const lastForLang = safeStorage.getItem(`codearena_last_code_${lang}`) || "";
+          setActiveCode(lastForLang);
+          if (activeChatId) {
+            safeStorage.setItem(`codearena_session_code_${activeChatId}`, lastForLang);
+            setChats((prev) =>
+              prev.map((c) => (c.id === activeChatId ? { ...c, language: lang, currentCode: lastForLang } : c))
+            );
           }
         }}
         username={username}
@@ -1204,7 +1213,7 @@ export default function AITutor({
                         content={message.content}
                         language={selectedLang}
                         onApplyCode={(fixCode) => {
-                          setActiveCode(fixCode);
+                          handleCodeChange(fixCode);
                           setMobileTab("code");
                         }}
                       />
@@ -1462,7 +1471,7 @@ export default function AITutor({
               <textarea
                 ref={textareaRef}
                 value={activeCode}
-                onChange={(e) => setActiveCode(e.target.value)}
+                onChange={(e) => handleCodeChange(e.target.value)}
                 onScroll={handleEditorScroll}
                 onKeyDown={handleEditorKeyDown}
                 spellCheck="false"

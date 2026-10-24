@@ -327,14 +327,14 @@ function sanitizeEvaluationOutput(parsed) {
     verdict: 'incorrect',
     bugDna: {
       category: 'LOGIC',
-      type: 'Execution Diagnostic',
-      description: 'The evaluator encountered an issue parsing the execution model.',
+      type: 'Logic Inconsistency',
+      description: 'The code produced unexpected behavior or failed boundary verification.',
       severity: 'warning',
     },
     stateDivergence: [],
     testCaseStatus: { passed: 0, total: 1, failedCase: null },
-    socraticGuidance: 'Please review your syntax and logic boundaries.',
-    feedback: 'Evaluation completed with warnings. Please try testing your code locally or reviewing recent changes.',
+    socraticGuidance: 'Please review your loops, conditional boundaries, and return statements.',
+    feedback: 'Evaluation completed. Trace your variables step by step to verify your program logic.',
   };
 }
 
@@ -389,10 +389,113 @@ async function handleChat({ prompt, currentCode, language = 'Python', lesson = '
   }
 }
 
+const { execSync } = require('child_process');
+
+function checkFastSyntax(code, language) {
+  if (!code || typeof code !== 'string' || !code.trim()) return null;
+  const norm = (language || 'Python').toLowerCase();
+
+  if (norm.includes('python') || norm === 'py') {
+    try {
+      execSync('python3 -c "import ast, sys; ast.parse(sys.stdin.read())"', {
+        input: code,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 3000,
+      });
+      return null;
+    } catch (err) {
+      const stderr = err.stderr || '';
+      const match = stderr.match(/SyntaxError:\s*(.+)/);
+      const lineMatch = stderr.match(/line\s+(\d+)/);
+      const line = lineMatch ? parseInt(lineMatch[1], 10) : 1;
+      const desc = match ? match[1].trim() : 'Syntax compilation error.';
+
+      return {
+        verdict: 'incorrect',
+        bugDna: {
+          category: 'SYNTAX',
+          type: 'Syntax Error',
+          description: `Line ${line}: SyntaxError - ${desc}`,
+          severity: 'error',
+        },
+        stateDivergence: [
+          {
+            step: 1,
+            variable: `line_${line}`,
+            expected: 'Valid syntax expression',
+            actual: code.split('\n')[line - 1]?.trim() || 'Incomplete statement',
+            explanation: `Python parser halted at line ${line}: ${desc}`,
+          },
+        ],
+        testCaseStatus: {
+          passed: 0,
+          total: 1,
+          failedCase: {
+            input: 'Code Compilation',
+            expected: 'Clean parse without syntax errors',
+            actual: `SyntaxError on line ${line}`,
+            failureReason: desc,
+          },
+        },
+        socraticGuidance: `Inspect line ${line} carefully. Is there an unclosed quote, missing parenthesis, or unexpected indentation?`,
+        feedback: `You have a syntax error on line ${line} (${desc}). Fix the syntax boundary so your code can run cleanly.`,
+      };
+    }
+  }
+
+  if (norm.includes('javascript') || norm.includes('node') || norm === 'js') {
+    try {
+      new Function(code);
+      return null;
+    } catch (err) {
+      return {
+        verdict: 'incorrect',
+        bugDna: {
+          category: 'SYNTAX',
+          type: 'Syntax Error',
+          description: `SyntaxError: ${err.message}`,
+          severity: 'error',
+        },
+        stateDivergence: [
+          {
+            step: 1,
+            variable: 'syntax',
+            expected: 'Valid JavaScript statement',
+            actual: 'Syntax parse failure',
+            explanation: err.message,
+          },
+        ],
+        testCaseStatus: {
+          passed: 0,
+          total: 1,
+          failedCase: {
+            input: 'Compilation',
+            expected: 'Clean parse',
+            actual: 'SyntaxError',
+            failureReason: err.message,
+          },
+        },
+        socraticGuidance: `Review your syntax near the error: ${err.message}. Are all brackets, quotes, and punctuation balanced?`,
+        feedback: `A syntax error was caught (${err.message}). Balance any open structures to continue.`,
+      };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Handle POST /api/ai/evaluate
  */
 async function handleEvaluate({ currentCode, problemId = '', language = 'Python', task = '', lastOutput = '' }) {
+  // 1. Instant deterministic syntax verification (0-5ms)
+  const syntaxDiag = checkFastSyntax(currentCode, language);
+  if (syntaxDiag) {
+    return syntaxDiag;
+  }
+
+  // 2. Full LLM evaluation for logical verification & state divergence
   const systemPrompt = buildEvaluationPrompt({
     language,
     task,

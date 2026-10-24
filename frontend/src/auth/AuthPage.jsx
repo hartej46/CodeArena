@@ -100,11 +100,6 @@ export default function AuthPage({ onLogin }) {
         },
       });
 
-      // Display One Tap prompt automatically if available
-      try {
-        window.google.accounts.id.prompt();
-      } catch (_) {}
-
       return true;
     };
 
@@ -118,6 +113,9 @@ export default function AuthPage({ onLogin }) {
 
     return () => {
       if (checkInterval) clearInterval(checkInterval);
+      try {
+        window.google?.accounts?.id?.cancel();
+      } catch (_) {}
     };
   }, [activeClientId]);
 
