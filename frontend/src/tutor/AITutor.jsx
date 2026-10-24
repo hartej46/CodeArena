@@ -6,7 +6,9 @@ import Navbar from "../components/Navbar";
 //  Configurable Endpoints (Axios)
 // ──────────────────────────────────────────────
 export const AI_CHAT_ENDPOINT = "/api/ai/chat";
-export const DIRECT_BACKEND_URL = "http://localhost:5000/api/ai/chat";
+export const DIRECT_BACKEND_URL = "http://localhost:5001/api/ai/chat";
+export const RUN_CODE_ENDPOINT = "/api/run";
+export const DIRECT_RUN_ENDPOINT = "http://localhost:5001/api/run";
 
 // ──────────────────────────────────────────────
 //  Starter Code Templates
@@ -331,6 +333,32 @@ function RefreshIcon({ className = "w-4 h-4" }) {
   );
 }
 
+function PlayIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  );
+}
+
+function TerminalIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" y1="19" x2="20" y2="19" />
+    </svg>
+  );
+}
+
+function SpinnerIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={`${className} animate-spin`} viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
+  );
+}
+
 // ──────────────────────────────────────────────
 //  Suggested Prompts for Fast Socratic Inquiries
 // ──────────────────────────────────────────────
@@ -438,7 +466,7 @@ function MicroMcqCard({ microMcq }) {
 // ──────────────────────────────────────────────
 //  Markdown & Code Block Renderer
 // ──────────────────────────────────────────────
-function FormattedMessage({ content, language }) {
+function FormattedMessage({ content, language, onApplyCode }) {
   const [copiedIndex, setCopiedIndex] = useState(null);
 
   const parts = [];
@@ -542,22 +570,33 @@ function FormattedMessage({ content, language }) {
             >
               <div className="px-3 py-1.5 bg-[#1E293B] border-b border-slate-700/60 flex items-center justify-between text-[11px] font-mono">
                 <span className="font-bold text-slate-300 uppercase">{part.lang}</span>
-                <button
-                  onClick={() => handleCopy(part.code, index)}
-                  className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-600/50 cursor-pointer"
-                >
-                  {copiedIndex === index ? (
-                    <>
-                      <CheckIcon className="w-3 h-3 text-emerald-400" />
-                      <span className="text-emerald-300 font-bold">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="w-3 h-3" />
-                      <span>Copy</span>
-                    </>
+                <div className="flex items-center gap-1.5">
+                  {onApplyCode && (
+                    <button
+                      onClick={() => onApplyCode(part.code)}
+                      className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-[#38BDF8]/20 hover:bg-[#38BDF8]/30 text-[#38BDF8] border border-[#38BDF8]/40 transition-colors cursor-pointer"
+                      title="Load this snippet into your active editor"
+                    >
+                      <span>Apply Fix</span>
+                    </button>
                   )}
-                </button>
+                  <button
+                    onClick={() => handleCopy(part.code, index)}
+                    className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-600/50 cursor-pointer"
+                  >
+                    {copiedIndex === index ? (
+                      <>
+                        <CheckIcon className="w-3 h-3 text-emerald-400" />
+                        <span className="text-emerald-300 font-bold">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <CopyIcon className="w-3 h-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="p-3 overflow-x-auto text-xs font-mono leading-relaxed bg-[#0F172A]">
                 <pre className="text-[#38BDF8]">
@@ -573,6 +612,7 @@ function FormattedMessage({ content, language }) {
     </div>
   );
 }
+
 
 // ──────────────────────────────────────────────
 //  MAIN AI TUTOR COMPONENT (PAGE 2)
@@ -606,8 +646,16 @@ export default function AITutor({
   // ── Input & UI States ──
   const [promptInput, setPromptInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCodeDrawerOpen, setIsCodeDrawerOpen] = useState(true); // Dual-Input Code Preview Drawer
   const [codeCopied, setCodeCopied] = useState(false);
+
+  // ── Code Execution & Terminal States ──
+  const [isRunningCode, setIsRunningCode] = useState(false);
+  const [runResult, setRunResult] = useState(null);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [stdinInput, setStdinInput] = useState("");
+  const [activeTerminalTab, setActiveTerminalTab] = useState("output"); // "output" | "stdin"
+  const [terminalCopied, setTerminalCopied] = useState(false);
+  const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "code"
 
   const messagesEndRef = useRef(null);
 
@@ -789,6 +837,64 @@ export default function AITutor({
     );
   };
 
+  // ────────────────────────────────────────────
+  //  Action: Run Code in Live Sandbox
+  // ────────────────────────────────────────────
+  const handleRunCode = async () => {
+    if (isRunningCode || !activeCode.trim()) return;
+    setIsRunningCode(true);
+    setIsTerminalOpen(true);
+    setActiveTerminalTab("output");
+
+    try {
+      let res;
+      try {
+        res = await axios.post(RUN_CODE_ENDPOINT, {
+          code: activeCode,
+          language: selectedLang,
+          stdin: stdinInput,
+        });
+      } catch (proxyErr) {
+        console.warn("Proxy execution call failed, falling back to direct port 5001...", proxyErr);
+        res = await axios.post(DIRECT_RUN_ENDPOINT, {
+          code: activeCode,
+          language: selectedLang,
+          stdin: stdinInput,
+        });
+      }
+
+      const executionData = res.data?.data || res.data;
+      setRunResult(executionData);
+    } catch (err) {
+      console.error("Code execution failed:", err);
+      setRunResult({
+        status: { id: 11, description: "Execution Error" },
+        stdout: "",
+        stderr: err.response?.data?.error || err.response?.data?.details || err.message || "Failed to execute code.",
+        time: "0ms",
+        memory: "0 MB",
+        exit_code: 1,
+        engine: "Runtime Error",
+      });
+    } finally {
+      setIsRunningCode(false);
+    }
+  };
+
+  const handleClearTerminal = () => {
+    setRunResult(null);
+  };
+
+  const handleCopyTerminal = () => {
+    if (!runResult) return;
+    const fullOutput = [runResult.stdout, runResult.stderr, runResult.compile_output]
+      .filter(Boolean)
+      .join("\n");
+    navigator.clipboard.writeText(fullOutput || "(No output)");
+    setTerminalCopied(true);
+    setTimeout(() => setTerminalCopied(false), 2000);
+  };
+
   const lineCount = Math.max(activeCode.split("\n").length, 1);
 
   return (
@@ -900,37 +1006,67 @@ export default function AITutor({
         </aside>
 
         {/* ═══════════════════════════════════════════
-            RIGHT MAIN CHAT AREA (AI TUTOR WORKSPACE)
+            PARALLEL WORKSPACE: CHAT (LEFT) & CODE SNIPPET (RIGHT)
             ═══════════════════════════════════════════ */}
-        <main className="flex-1 flex flex-col justify-between max-h-[calc(100vh-65px)] overflow-hidden">
-          {/* 1. CHAT HEADER */}
-          <div className="px-5 py-3.5 bg-white border-b-2 border-[#0F172A] flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-bold text-sm">
-                🤖
+        <main className="flex-1 flex flex-col lg:flex-row max-h-[calc(100vh-65px)] overflow-hidden min-w-0">
+          {/* ───────────────────────────────────────────
+              PARALLEL PANE 1 (LEFT): CHAT CONVERSATION & PROMPT
+              ─────────────────────────────────────────── */}
+          <div
+            className={`w-full lg:w-1/2 flex flex-col min-w-0 border-b-2 lg:border-b-0 lg:border-r-2 border-[#0F172A] bg-[#FAF9F0] overflow-hidden ${
+              mobileTab === "code" ? "hidden lg:flex" : "flex"
+            }`}
+          >
+            {/* 1. CHAT HEADER */}
+            <div className="px-4 py-3 bg-white border-b-2 border-[#0F172A] flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FFDF2B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex items-center justify-center font-bold text-sm shrink-0">
+                  🤖
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-xs sm:text-sm font-black text-[#0F172A] truncate">
+                    {activeChat.title}
+                  </h2>
+                  <p className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
+                    <span>Track: {selectedLang}</span>
+                    <span>•</span>
+                    <span>{activeChat.messages?.length || 0} messages</span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-black text-[#0F172A]">
-                  {activeChat.title}
-                </h2>
-                <p className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
-                  <span>Track: {selectedLang}</span>
-                  <span>•</span>
-                  <span>{activeChat.messages?.length || 0} messages exchanged</span>
-                </p>
-              </div>
-            </div>
 
-            {/* Socratic No-Spoiler Mode Active Badge */}
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#DBEAFE] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
-                <span className="w-2 h-2 rounded-full bg-[#1D4ED8] animate-pulse" />
-                <span className="text-xs font-black text-[#1D4ED8]">
-                  Socratic No-Spoiler Mode Active
-                </span>
+              <div className="flex items-center gap-2">
+                {/* Mobile View Toggle */}
+                <div className="lg:hidden flex items-center bg-slate-100 rounded-lg p-0.5 border border-[#0F172A]">
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab("chat")}
+                    className={`px-2 py-1 rounded text-[10px] font-black ${
+                      mobileTab === "chat" ? "bg-[#FFDF2B] text-[#0F172A]" : "text-slate-500"
+                    }`}
+                  >
+                    Chat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab("code")}
+                    className={`px-2 py-1 rounded text-[10px] font-black ${
+                      mobileTab === "code" ? "bg-[#FFDF2B] text-[#0F172A]" : "text-slate-500"
+                    }`}
+                  >
+                    Code & Runner
+                  </button>
+                </div>
+
+                {/* Socratic No-Spoiler Mode Active Badge */}
+                <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#DBEAFE] border-2 border-[#0F172A] shadow-[1px_1px_0px_#0F172A]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1D4ED8] animate-pulse" />
+                  <span className="text-[11px] font-black text-[#1D4ED8]">
+                    Socratic Mode
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
           {/* 2. CHAT MESSAGE FEED (Scrollable) */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
@@ -992,8 +1128,15 @@ export default function AITutor({
                       </div>
                     )}
 
-                    {/* Content formatted */}
-                    <FormattedMessage content={message.content} language={selectedLang} />
+                    {/* Content formatted with Apply Fix capability */}
+                    <FormattedMessage
+                      content={message.content}
+                      language={selectedLang}
+                      onApplyCode={(fixCode) => {
+                        setActiveCode(fixCode);
+                        setMobileTab("code");
+                      }}
+                    />
 
                     {/* Micro-MCQ interactive widget if attached */}
                     {message.microMcq && <MicroMcqCard microMcq={message.microMcq} />}
@@ -1052,94 +1195,16 @@ export default function AITutor({
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════
-              4. BOTTOM DUAL-INPUT BAR
-              (Prompt Input + Code Snippet Context Preview + Send Button)
-              ═══════════════════════════════════════════ */}
-          <div className="p-4 bg-white border-t-2 border-[#0F172A] shrink-0">
-            <div className="max-w-4xl mx-auto space-y-3">
-              {/* CODE SNIPPET CONTEXT PREVIEW BOX (Collapsible / Editable) */}
-              <div className="rounded-xl border-2 border-[#0F172A] bg-[#0F172A] text-white overflow-hidden shadow-[3px_3px_0px_#0F172A]">
-                {/* Header bar of code snippet context */}
-                <div className="px-3 py-2 bg-[#1E293B] border-b border-slate-700 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CodeBracketIcon className="w-4 h-4 text-[#38BDF8]" />
-                    <span className="text-xs font-mono font-bold text-slate-200">
-                      Code Snippet Context ({FILE_EXTENSIONS[selectedLang]})
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">
-                      • {lineCount} lines • Evaluated alongside prompt
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleResetStarter}
-                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold border border-slate-600 transition-colors cursor-pointer flex items-center gap-1"
-                      title="Reset boilerplate"
-                    >
-                      <RefreshIcon className="w-2.5 h-2.5" />
-                      <span>Reset</span>
-                    </button>
-                    <button
-                      onClick={handleCopyCode}
-                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold border border-slate-600 transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      {codeCopied ? (
-                        <>
-                          <CheckIcon className="w-2.5 h-2.5 text-emerald-400" />
-                          <span className="text-emerald-300">Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <CopyIcon className="w-2.5 h-2.5" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setIsCodeDrawerOpen(!isCodeDrawerOpen)}
-                      className="px-2 py-0.5 rounded bg-[#38BDF8]/20 hover:bg-[#38BDF8]/30 text-[#38BDF8] text-[10px] font-mono font-bold border border-[#38BDF8]/40 transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      {isCodeDrawerOpen ? (
-                        <>
-                          <span>Hide Editor</span>
-                          <ChevronUpIcon className="w-3 h-3" />
-                        </>
-                      ) : (
-                        <>
-                          <span>Edit Code</span>
-                          <ChevronDownIcon className="w-3 h-3" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Code Textarea Drawer */}
-                {isCodeDrawerOpen && (
-                  <div className="p-2.5 bg-[#0B1120]">
-                    <textarea
-                      value={activeCode}
-                      onChange={(e) => setActiveCode(e.target.value)}
-                      rows={5}
-                      spellCheck="false"
-                      className="w-full bg-transparent text-[#F8FAFC] font-mono text-xs leading-[1.6] resize-y focus:outline-none overflow-auto whitespace-pre selection:bg-[#38BDF8]/30"
-                      placeholder={`Write or paste your ${selectedLang} code here to be evaluated...`}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* CHAT PROMPT INPUT BOX + VIBRANT YELLOW SEND BUTTON */}
+            {/* 4. CHAT PROMPT INPUT BAR (Bottom of Left Chat Column) */}
+            <div className="p-3 bg-white border-t-2 border-[#0F172A] shrink-0">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSendPrompt();
                 }}
-                className="flex flex-col sm:flex-row items-stretch gap-2"
+                className="flex items-stretch gap-2"
               >
-                <div className="relative flex-1 rounded-xl border-2 border-[#0F172A] bg-[#FAF9F0] shadow-[3px_3px_0px_#0F172A] focus-within:border-[#1D4ED8] transition-all">
+                <div className="relative flex-1 rounded-xl border-2 border-[#0F172A] bg-[#FAF9F0] shadow-[2px_2px_0px_#0F172A] focus-within:border-[#1D4ED8] transition-all">
                   <textarea
                     value={promptInput}
                     onChange={(e) => setPromptInput(e.target.value)}
@@ -1147,9 +1212,9 @@ export default function AITutor({
                     placeholder="Ask AI a question or request Socratic guidance on your code..."
                     rows={2}
                     disabled={isSubmitting}
-                    className="w-full px-3 py-2 bg-transparent text-xs sm:text-sm text-[#0F172A] placeholder:text-[#94A3B8] resize-none focus:outline-none font-medium"
+                    className="w-full px-3 py-1.5 bg-transparent text-xs text-[#0F172A] placeholder:text-[#94A3B8] resize-none focus:outline-none font-medium"
                   />
-                  <div className="px-3 pb-1 text-[10px] text-[#64748B] flex justify-between">
+                  <div className="px-2.5 pb-1 text-[9px] text-[#64748B] flex justify-between">
                     <span>Shift+Enter for newline</span>
                     <span className="font-mono text-[#1D4ED8]">
                       📎 Code attached: {lineCount} lines ({selectedLang})
@@ -1157,21 +1222,338 @@ export default function AITutor({
                   </div>
                 </div>
 
-                {/* Send Button styled in vibrant yellow (#FFDF2B) with hard shadow */}
                 <button
                   type="submit"
                   disabled={isSubmitting || !promptInput.trim()}
-                  className={`px-6 py-3 rounded-xl border-2 border-[#0F172A] font-black text-sm flex items-center justify-center gap-2 transition-all cursor-pointer self-stretch sm:self-auto shrink-0 ${
+                  className={`px-4 rounded-xl border-2 border-[#0F172A] font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer self-stretch shrink-0 ${
                     isSubmitting || !promptInput.trim()
                       ? "bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed"
-                      : "bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] shadow-[4px_4px_0px_#0F172A] hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px]"
+                      : "bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[1px] hover:translate-y-[1px]"
                   }`}
                 >
-                  <span>Send Prompt</span>
-                  <SendIcon className="w-4 h-4" />
+                  <span>Send</span>
+                  <SendIcon className="w-3.5 h-3.5" />
                 </button>
               </form>
             </div>
+          </div>
+
+          {/* ───────────────────────────────────────────
+              PARALLEL PANE 2 (RIGHT): CODE SNIPPET CONTEXT & RUNNER
+              ─────────────────────────────────────────── */}
+          {/* ───────────────────────────────────────────
+              PARALLEL PANE 2 (RIGHT): CODE SNIPPET CONTEXT & RUNNER
+              ─────────────────────────────────────────── */}
+          <div
+            className={`w-full lg:w-1/2 flex flex-col min-w-0 bg-[#0B1120] text-white overflow-hidden ${
+              mobileTab === "chat" ? "hidden lg:flex" : "flex"
+            }`}
+          >
+            {/* Header bar of code snippet context */}
+            <div className="px-3 py-2 bg-[#0F172A] border-b border-slate-700/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <CodeBracketIcon className="w-4 h-4 text-[#38BDF8]" />
+                <span className="text-xs font-mono font-bold text-slate-200">
+                  {FILE_EXTENSIONS[selectedLang]}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+                  • {lineCount} lines • Evaluated with tutor prompt
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* RUN CODE BUTTON */}
+                <button
+                  type="button"
+                  onClick={handleRunCode}
+                  disabled={isRunningCode || !activeCode.trim()}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    isRunningCode
+                      ? "bg-emerald-900/60 text-emerald-300 border-emerald-600/60 cursor-wait"
+                      : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-300 shadow-[2px_2px_0px_#064e3b] active:translate-x-[1px] active:translate-y-[1px]"
+                  }`}
+                  title="Run code in sandboxed engine (Cmd+Enter or Ctrl+Enter)"
+                >
+                  {isRunningCode ? (
+                    <>
+                      <SpinnerIcon className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>Running...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlayIcon className="w-3.5 h-3.5 text-slate-950" />
+                      <span>Run Code</span>
+                      <span className="text-[10px] opacity-75 hidden md:inline ml-0.5 font-normal">⌘↵</span>
+                    </>
+                  )}
+                </button>
+
+                {/* TERMINAL TOGGLE */}
+                <button
+                  type="button"
+                  onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                  className={`px-2 py-1 rounded text-[10px] font-mono font-bold border transition-colors cursor-pointer flex items-center gap-1 ${
+                    isTerminalOpen
+                      ? "bg-slate-700 text-sky-300 border-sky-400/50"
+                      : "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600"
+                  }`}
+                  title="Toggle execution output terminal"
+                >
+                  <TerminalIcon className="w-3 h-3 text-sky-400" />
+                  <span className="hidden sm:inline">Terminal</span>
+                  {runResult && (
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        runResult.status?.id === 3 ? "bg-emerald-400" : "bg-rose-400"
+                      }`}
+                    />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetStarter}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold border border-slate-600 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Reset boilerplate"
+                >
+                  <RefreshIcon className="w-2.5 h-2.5" />
+                  <span className="hidden sm:inline">Reset</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold border border-slate-600 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Copy code"
+                >
+                  {codeCopied ? (
+                    <>
+                      <CheckIcon className="w-2.5 h-2.5 text-emerald-400" />
+                      <span className="text-emerald-300">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="w-2.5 h-2.5" />
+                      <span className="hidden sm:inline">Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Code Editor Body - Takes flex-1 so it expands cleanly */}
+            <div className="flex-1 flex flex-col min-h-0 bg-[#0B1120] relative">
+              <textarea
+                value={activeCode}
+                onChange={(e) => setActiveCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    handleRunCode();
+                  }
+                }}
+                spellCheck="false"
+                className="w-full flex-1 p-3.5 bg-[#0B1120] text-[#F8FAFC] font-mono text-xs sm:text-[13px] leading-[1.65] resize-none focus:outline-none overflow-auto whitespace-pre selection:bg-[#38BDF8]/30 font-medium"
+                placeholder={`Write or paste your ${selectedLang} code here to run (Cmd+Enter to Run)...`}
+              />
+            </div>
+
+            {/* Live Terminal & Execution Console at the bottom */}
+            {isTerminalOpen ? (
+              <div className="h-60 sm:h-64 border-t-2 border-slate-700 bg-[#070B14] flex flex-col shrink-0 overflow-hidden">
+                {/* Terminal Header Bar */}
+                <div className="px-3 py-1.5 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    {/* Tab buttons */}
+                    <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTerminalTab("output")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          activeTerminalTab === "output"
+                            ? "bg-slate-700 text-sky-300 shadow-sm"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        <TerminalIcon className="w-2.5 h-2.5" />
+                        <span>Output</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTerminalTab("stdin")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          activeTerminalTab === "stdin"
+                            ? "bg-slate-700 text-amber-300 shadow-sm"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        <span>Stdin</span>
+                        {stdinInput.trim() && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Status badge */}
+                    {runResult && (
+                      <div
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                          runResult.status?.id === 3
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                            : runResult.status?.id === 5
+                            ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                            : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            runResult.status?.id === 3
+                              ? "bg-emerald-400 animate-pulse"
+                              : "bg-rose-400"
+                          }`}
+                        />
+                        <span>{runResult.status?.description || "Executed"}</span>
+                      </div>
+                    )}
+
+                    {/* Metrics */}
+                    {runResult?.time && (
+                      <span className="text-[10px] text-slate-400 hidden sm:inline">
+                        ⏱️ {runResult.time}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Terminal Actions */}
+                  <div className="flex items-center gap-1">
+                    {runResult && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleCopyTerminal}
+                          className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold border border-slate-700 transition-colors cursor-pointer"
+                          title="Copy output"
+                        >
+                          {terminalCopied ? "Copied" : "Copy"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearTerminal}
+                          className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold border border-slate-700 transition-colors cursor-pointer"
+                          title="Clear terminal"
+                        >
+                          <TrashIcon className="w-2.5 h-2.5" />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsTerminalOpen(false)}
+                      className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-[10px] font-bold border border-slate-700 transition-colors cursor-pointer"
+                      title="Hide terminal"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Terminal Body */}
+                <div className="flex-1 overflow-y-auto p-3 bg-[#060911]">
+                  {activeTerminalTab === "stdin" ? (
+                    <div className="h-full flex flex-col">
+                      <div className="text-[10px] text-slate-400 mb-1 flex items-center justify-between">
+                        <span>Standard Input (stdin):</span>
+                        <span className="text-slate-500">Piped to program during execution</span>
+                      </div>
+                      <textarea
+                        value={stdinInput}
+                        onChange={(e) => setStdinInput(e.target.value)}
+                        className="w-full flex-1 bg-[#0F172A] border border-slate-700 rounded p-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-sky-500 resize-none"
+                        placeholder="Enter stdin values..."
+                      />
+                    </div>
+                  ) : isRunningCode ? (
+                    <div className="flex items-center gap-2 text-sky-400 py-3">
+                      <SpinnerIcon className="w-4 h-4 text-sky-400" />
+                      <span className="text-xs">
+                        Executing {FILE_EXTENSIONS[selectedLang]} in sandbox...
+                      </span>
+                    </div>
+                  ) : runResult ? (
+                    <div className="space-y-2 font-mono text-xs leading-relaxed">
+                      {/* Compilation Error */}
+                      {runResult.compile_output && (
+                        <div className="p-2 rounded bg-rose-950/60 border border-rose-800 text-rose-300">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-rose-400 mb-1">
+                            Compilation Output:
+                          </div>
+                          <pre className="whitespace-pre-wrap font-mono text-xs">
+                            {runResult.compile_output}
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* Standard Output (stdout) */}
+                      {runResult.stdout && (
+                        <div>
+                          <pre className="whitespace-pre-wrap font-mono text-emerald-300">
+                            {runResult.stdout}
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* Standard Error (stderr) */}
+                      {runResult.stderr && (
+                        <div className="p-2 rounded bg-rose-950/40 border-l-2 border-rose-500 text-rose-300">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-rose-400 mb-0.5">
+                            Runtime Error:
+                          </div>
+                          <pre className="whitespace-pre-wrap font-mono text-xs text-rose-200">
+                            {runResult.stderr}
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* No output case */}
+                      {!runResult.stdout && !runResult.stderr && !runResult.compile_output && (
+                        <div className="text-slate-400 italic text-xs py-1">
+                          [Process finished with exit code {runResult.exit_code ?? 0} — No console output printed]
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 py-2 text-xs flex flex-col justify-center h-full">
+                      <span>No output yet.</span>
+                      <span className="text-[10px] text-slate-600 mt-1">
+                        Click &quot;Run Code&quot; or press ⌘↵ to execute.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => setIsTerminalOpen(true)}
+                className="px-3 py-1.5 bg-[#0F172A] border-t border-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-mono flex items-center justify-between cursor-pointer transition-colors shrink-0"
+              >
+                <div className="flex items-center gap-2">
+                  <TerminalIcon className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Terminal Console</span>
+                  {runResult && (
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded font-black uppercase ${
+                        runResult.status?.id === 3
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : "bg-rose-500/20 text-rose-300"
+                      }`}
+                    >
+                      {runResult.status?.description || "Last Result"}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500">Click to expand ▲</span>
+              </div>
+            )}
           </div>
         </main>
       </div>

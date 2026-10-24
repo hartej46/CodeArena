@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const aiRoutes = require('./src/routes/aiRoutes');
+const runRoutes = require('./src/routes/runRoutes');
 
 dotenv.config();
 
@@ -30,12 +31,15 @@ app.get('/', (req, res) => {
       health: 'GET /api/ai/health',
       chat: 'POST /api/ai/chat',
       evaluate: 'POST /api/ai/evaluate',
+      run: 'POST /api/run',
+      submit: 'POST /api/submit',
     },
   });
 });
 
-// Mount AI Tutor Routes
+// Mount Routes
 app.use('/api/ai', aiRoutes);
+app.use('/api', runRoutes);
 
 // 404 Handler
 app.use((req, res) => {
