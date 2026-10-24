@@ -4,6 +4,7 @@ import {
   loginWithEmail,
   registerWithEmail,
   loginWithDemo,
+  safeStorage,
 } from "./authApi";
 
 // ──────────────────────────────────────────────
@@ -62,7 +63,7 @@ export default function AuthPage({ onLogin }) {
   const getActiveGoogleClientId = () => {
     return (
       import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-      localStorage.getItem("codearena_google_client_id") ||
+      safeStorage.getItem("codearena_google_client_id") ||
       "337886591905-4f8ppdqstl6ts455ubgg1iup3ool5shg.apps.googleusercontent.com"
     );
   };
@@ -177,7 +178,7 @@ export default function AuthPage({ onLogin }) {
     e.preventDefault();
     const trimmed = clientIdInput.trim();
     if (!trimmed) return;
-    localStorage.setItem("codearena_google_client_id", trimmed);
+    safeStorage.setItem("codearena_google_client_id", trimmed);
     setActiveClientId(trimmed);
     setIsConfiguringId(false);
     setErrorMessage("");

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
-import { TOKEN_STORAGE_KEY } from "../auth/authApi";
+import { TOKEN_STORAGE_KEY, getStoredToken } from "../auth/authApi";
 
 export const AI_CHAT_ENDPOINT = "/api/ai/chat";
 export const DIRECT_BACKEND_URL = "http://localhost:5001/api/ai/chat";
@@ -505,7 +505,7 @@ export default function AITutor({
     let isMounted = true;
     setIsLoadingSessions(true);
 
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = getStoredToken();
     const headers = token ? { Authorization: "Bearer " + token } : {};
 
     axios
@@ -687,7 +687,7 @@ export default function AITutor({
       return;
     }
 
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = getStoredToken();
     const headers = token ? { Authorization: "Bearer " + token } : {};
 
     const remaining = chats.filter((c) => c.id !== idToDelete);
@@ -735,7 +735,7 @@ export default function AITutor({
     setIsSubmitting(true);
 
     try {
-      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const token = getStoredToken();
       const headers = token ? { Authorization: "Bearer " + token } : {};
 
       const payload = {
@@ -851,7 +851,7 @@ export default function AITutor({
     setActiveTerminalTab("output");
 
     try {
-      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const token = getStoredToken();
       const headers = token ? { Authorization: "Bearer " + token } : {};
 
       let res;
@@ -906,7 +906,7 @@ export default function AITutor({
     setActiveTerminalTab("autopsy");
 
     try {
-      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const token = getStoredToken();
       const headers = token ? { Authorization: "Bearer " + token } : {};
 
       const payload = {

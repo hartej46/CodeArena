@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
-import { TOKEN_STORAGE_KEY } from "../auth/authApi";
+import { TOKEN_STORAGE_KEY, getStoredToken } from "../auth/authApi";
 
 // ──────────────────────────────────────────────
 //  Inline SVG Icons (Zero Missing Dependencies)
@@ -103,7 +103,7 @@ export default function Home({ username = "Aarav", onNavigate, user, onLogout })
     let isMounted = true;
     setIsLoading(true);
 
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = getStoredToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const url = selectedCourseId ? `/api/dashboard?courseId=${selectedCourseId}` : `/api/dashboard`;
 

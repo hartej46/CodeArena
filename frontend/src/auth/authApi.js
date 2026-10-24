@@ -6,44 +6,111 @@ const API_BASE = "/api/auth";
 export const TOKEN_STORAGE_KEY = "codearena_token";
 export const USER_STORAGE_KEY = "codearena_user";
 
+// Fallback in-memory store in case document/window denies localStorage access
+const memoryStore = new Map();
+
 /**
- * Get current stored auth state
+ * Universal Safe Storage adapter:
+ * Guards against SecurityError: Access is denied for this document
+ * when third-party cookies or site storage are disabled by browser.
+ */
+export const safeStorage = {
+  getItem(key) {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+    } catch (_) {
+      // Silently fall back to in-memory store
+    }
+    return memoryStore.has(key) ? memoryStore.get(key) : null;
+  },
+
+  setItem(key, value) {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(key, String(value));
+        return;
+      }
+    } catch (_) {
+      // Silently fall back to in-memory store
+    }
+    memoryStore.set(key, String(value));
+  },
+
+  removeItem(key) {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+    } catch (_) {
+      // Silently fall back to in-memory store
+    }
+    memoryStore.delete(key);
+  },
+
+  clear() {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.clear();
+        return;
+      }
+    } catch (_) {
+      // Silently fall back to in-memory store
+    }
+    memoryStore.clear();
+  },
+};
+
+/**
+ * Get current stored auth token safely
+ */
+export function getStoredToken() {
+  return safeStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
+/**
+ * Get current stored auth state safely
  */
 export function getStoredAuth() {
   try {
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-    const userStr = localStorage.getItem(USER_STORAGE_KEY);
+    const token = safeStorage.getItem(TOKEN_STORAGE_KEY);
+    const userStr = safeStorage.getItem(USER_STORAGE_KEY);
     const user = userStr ? JSON.parse(userStr) : null;
     return { token, user };
   } catch (err) {
-    console.error("Failed to read auth from storage:", err);
     return { token: null, user: null };
   }
 }
 
 /**
- * Save auth session to localStorage
+ * Save auth session safely (falls back to memory if localStorage is restricted)
  */
 export function setStoredAuth(token, user) {
-  if (token) {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  } else {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-  }
+  try {
+    if (token) {
+      safeStorage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+      safeStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
 
-  if (user) {
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(USER_STORAGE_KEY);
-  }
+    if (user) {
+      safeStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    } else {
+      safeStorage.removeItem(USER_STORAGE_KEY);
+    }
+  } catch (_) {}
 }
 
 /**
- * Clear auth session
+ * Clear auth session safely
  */
 export function clearStoredAuth() {
-  localStorage.removeItem(TOKEN_STORAGE_KEY);
-  localStorage.removeItem(USER_STORAGE_KEY);
+  try {
+    safeStorage.removeItem(TOKEN_STORAGE_KEY);
+    safeStorage.removeItem(USER_STORAGE_KEY);
+  } catch (_) {}
 }
 
 /**
@@ -98,7 +165,7 @@ export async function loginWithDemo() {
  * Get current authenticated user profile
  */
 export async function getMe(token) {
-  const authToken = token || localStorage.getItem(TOKEN_STORAGE_KEY);
+  const authToken = token || getStoredToken();
   if (!authToken) throw new Error("No token found");
 
   const response = await axios.get(`${API_BASE}/me`, {
@@ -108,7 +175,7 @@ export async function getMe(token) {
   });
   const user = response.data?.data || response.data;
   if (user) {
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    safeStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
   }
   return user;
 }
