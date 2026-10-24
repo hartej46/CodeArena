@@ -11,6 +11,7 @@ const courseRoutes = require('./routes/courseRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const runRoutes = require('./routes/runRoutes');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api', runRoutes);
 
 // 404 Fallback for unknown routes
 app.use((req, res) => {
