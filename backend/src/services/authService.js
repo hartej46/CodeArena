@@ -201,9 +201,50 @@ async function handleGoogleAuth({ credential, accessToken, email, name, avatar, 
   };
 }
 
+/**
+ * Demo login for instant evaluation and testing
+ */
+async function loginDemoUser() {
+  const demoEmail = 'learner@codearena.dev';
+  const defaultPassword = 'password123';
+  const passwordHash = await bcrypt.hash(defaultPassword, SALT_ROUNDS);
+
+  let user = await prisma.user.findUnique({
+    where: { email: demoEmail },
+  });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        name: 'CodeArena Learner',
+        email: demoEmail,
+        passwordHash,
+      },
+    });
+  } else if (!user.passwordHash) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+  }
+
+  const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+
+  return {
+    token,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+    },
+  };
+}
+
 module.exports = {
   registerUser,
   loginUser,
   getCurrentUser,
   handleGoogleAuth,
+  loginDemoUser,
 };

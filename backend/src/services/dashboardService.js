@@ -16,7 +16,7 @@ async function getDashboardData(userId, queryCourseId = null) {
   ]);
 
   // 2. Enrollments with progress percentages
-  const userEnrollments = await prisma.enrollment.findMany({
+  let userEnrollments = await prisma.enrollment.findMany({
     where: { userId },
     include: {
       course: {
@@ -27,6 +27,28 @@ async function getDashboardData(userId, queryCourseId = null) {
     },
     orderBy: { enrolledAt: 'desc' },
   });
+
+  // Auto-enroll user in available courses if first time viewing dashboard
+  if (userEnrollments.length === 0) {
+    const allCourses = await prisma.course.findMany({ select: { id: true } });
+    if (allCourses.length > 0) {
+      const { enrollInCourse } = require('./courseService');
+      for (const c of allCourses) {
+        await enrollInCourse(c.id, userId).catch(() => null);
+      }
+      userEnrollments = await prisma.enrollment.findMany({
+        where: { userId },
+        include: {
+          course: {
+            include: {
+              lessons: { select: { id: true } },
+            },
+          },
+        },
+        orderBy: { enrolledAt: 'desc' },
+      });
+    }
+  }
 
   const courseIds = userEnrollments.map((e) => e.courseId);
 
@@ -150,6 +172,22 @@ async function getDashboardData(userId, queryCourseId = null) {
       estMinutes: ul.lesson.estMinutes,
       status: ul.status,
     }));
+
+    // If no upcoming user lessons were queued, retrieve the active course's real lessons from the database
+    if (nextUp.length === 0) {
+      const defaultLessons = await prisma.lesson.findMany({
+        where: { courseId: activeCourseId },
+        orderBy: { position: 'asc' },
+        take: 3,
+      });
+      nextUp = defaultLessons.map((l, idx) => ({
+        lessonId: l.id,
+        title: l.title,
+        kind: l.kind,
+        estMinutes: l.estMinutes,
+        status: idx === 0 ? 'next' : 'queued',
+      }));
+    }
   }
 
   // 4. Self-Reliance: Autonomy percentage & change this week

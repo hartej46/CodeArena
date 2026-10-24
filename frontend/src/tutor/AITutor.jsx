@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
+import { TOKEN_STORAGE_KEY } from "../auth/authApi";
 
-// ──────────────────────────────────────────────
-//  Configurable Endpoints (Axios)
-// ──────────────────────────────────────────────
 export const AI_CHAT_ENDPOINT = "/api/ai/chat";
 export const DIRECT_BACKEND_URL = "http://localhost:5001/api/ai/chat";
 export const RUN_CODE_ENDPOINT = "/api/run";
 export const DIRECT_RUN_ENDPOINT = "http://localhost:5001/api/run";
+export const EVALUATE_CODE_ENDPOINT = "/api/ai/evaluate";
+export const DIRECT_EVALUATE_ENDPOINT = "http://localhost:5001/api/ai/evaluate";
+export const LESSON_TASK_ENDPOINT = "/api/ai/lesson-task";
 
 // ──────────────────────────────────────────────
 //  Starter Code Templates
@@ -61,169 +62,28 @@ const FILE_EXTENSIONS = {
 };
 
 // ──────────────────────────────────────────────
-//  Initial Chat Sessions History
+//  Starter Session Helper (Real Backend Persistence)
 // ──────────────────────────────────────────────
-const INITIAL_CHATS = [
-  {
-    id: "chat-two-sum",
-    title: "Two Sum Debugging Session",
-    language: "Python",
-    timestamp: "10 mins ago",
-    currentCode: `def two_sum(nums, target):
-    seen = {}
-    for i, num in enumerate(nums):
-        complement = target - num
-        if complement in seen:
-            return [seen[complement], i]
-        seen[num] = i
-    return []
-
-print(two_sum([2, 7, 11, 15], 9))`,
-    messages: [
-      {
-        id: "m1",
-        role: "assistant",
-        content:
-          "Welcome Aarav! I'm your **Socratic AI Tutor** for **Two Sum Debugging** 🚀\n\nI have active visibility into your editor code. What edge cases or logic points would you like to verify before running?",
-        timestamp: "10:40 AM",
-        hintLevel: 1,
-      },
-      {
-        id: "m2",
-        role: "user",
-        content: "Why do we check if complement is in seen before storing seen[num] = i?",
-        attachedCodeLength: 184,
-        timestamp: "10:42 AM",
-      },
-      {
-        id: "m3",
-        role: "assistant",
-        content:
-          "Great observation! Let's think about what would happen if a number could accidentally match with itself.\n\nIf you have `nums = [3, 2, 4]` and `target = 6`, what would occur at `i = 0` if we inserted `3` into the hashmap before checking if `6 - 3 = 3` exists?",
-        lineReference: {
-          line: 5,
-          severity: "warning",
-          message: "Check order: checking membership before inserting prevents self-pairing.",
-        },
-        microMcq: {
-          question: "If we store seen[num] before checking, what index pair would [3, 2, 4] with target=6 return?",
-          options: [
-            "[0, 0] (The same element twice)",
-            "[0, 2] (Correct pair)",
-            "Empty list []",
-          ],
-          correctIndex: 0,
-          explanation: "Checking beforehand prevents an element from matching with itself!",
-        },
-        hintLevel: 2,
-        timestamp: "10:43 AM",
-      },
-    ],
-  },
-  {
-    id: "chat-js-async",
-    title: "JS Async & Promises Debugging",
-    language: "JavaScript",
-    timestamp: "1 hour ago",
-    currentCode: `async function fetchUserData(userId) {
-  try {
-    const res = await fetch(\`/api/users/\${userId}\`);
-    if (!res.ok) throw new Error("User not found");
-    const data = await res.json();
-    return data;
-  } catch (err) {
-    console.error("Fetch error:", err.message);
-    return null;
-  }
-}
-
-fetchUserData(42).then(console.log);`,
-    messages: [
-      {
-        id: "js-m1",
-        role: "assistant",
-        content:
-          "Welcome to **JavaScript Async & Promises Debugging** ⚡\n\nI can see your async/await handler. How does error propagation work when awaiting a rejected Promise?",
-        timestamp: "09:30 AM",
-        hintLevel: 1,
-      },
-      {
-        id: "js-m2",
-        role: "user",
-        content: "What happens if I forget the try/catch around an awaited promise?",
-        attachedCodeLength: 280,
-        timestamp: "09:32 AM",
-      },
-      {
-        id: "js-m3",
-        role: "assistant",
-        content:
-          "If an awaited Promise rejects without an enclosing try/catch block, what does the enclosing async function return to its caller?",
-        microMcq: {
-          question: "What does an unhandled rejection inside an async function produce?",
-          options: [
-            "A rejected Promise that bubbles up to the caller or unhandledrejection event",
-            "It automatically returns null and continues synchronous execution",
-            "The browser immediately terminates all JS event loop queues",
-          ],
-          correctIndex: 0,
-          explanation: "Async functions always return Promises, so an uncaught throw rejects the returned Promise!",
-        },
-        hintLevel: 2,
-        timestamp: "09:34 AM",
-      },
-    ],
-  },
-  {
-    id: "chat-recursion",
-    title: "Python Recursion Help",
-    language: "Python",
-    timestamp: "Yesterday",
-    currentCode: `def factorial(n):
-    if n <= 1:
-        return 1
-    return n * factorial(n - 1)
-
-print(factorial(5))`,
-    messages: [
-      {
-        id: "rec-m1",
-        role: "assistant",
-        content:
-          "Hello! Welcome to your **Python Recursion Help** session 🐍\n\nWe're focusing on base cases and call-stack unwinding. How can I guide your reasoning?",
-        timestamp: "Yesterday",
-        hintLevel: 1,
-      },
-    ],
-  },
-  {
-    id: "chat-js-closures",
-    title: "JavaScript Closures & Lexical Scope",
-    language: "JavaScript",
-    timestamp: "2 days ago",
-    currentCode: `function createCounter(initial = 0) {
-  let count = initial;
+function createStarterSession(language = "Python", username = "Learner", lessonTitle = null) {
+  const starterCode = CODE_TEMPLATES[language] || CODE_TEMPLATES.Python;
+  const title = lessonTitle || (language + " Socratic Practice");
   return {
-    increment: () => ++count,
-    decrement: () => --count,
-    get: () => count,
+    id: "local-" + Date.now(),
+    title,
+    language,
+    timestamp: "Just now",
+    currentCode: starterCode,
+    messages: [
+      {
+        id: "welcome-" + Date.now(),
+        role: "assistant",
+        content: "Welcome " + username + "! 🚀 I'm your **Socratic AI Tutor** for **" + title + "**.\n\nI have active visibility into your editor code below. What logic point, edge case, or bug would you like to explore?",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        hintLevel: 1,
+      },
+    ],
   };
 }
-
-const counter = createCounter(5);
-console.log(counter.increment()); // 6`,
-    messages: [
-      {
-        id: "clos-m1",
-        role: "assistant",
-        content:
-          "Welcome to **JavaScript Closures & Lexical Scope** ⚡\n\nNotice how the returned methods retain access to the enclosed `count` variable. What happens if multiple counters are instantiated?",
-        timestamp: "2 days ago",
-        hintLevel: 1,
-      },
-    ],
-  },
-];
 
 // ──────────────────────────────────────────────
 //  Inline SVG Icons (Zero Missing Dependencies)
@@ -630,18 +490,99 @@ function FormattedMessage({ content, language, onApplyCode }) {
 export default function AITutor({
   onNavigate,
   initialLanguage = "Python",
+  initialLesson = null,
   username = "Aarav",
   user,
   onLogout,
 }) {
   // ── State for Chat Sessions ──
-  const [chats, setChats] = useState(INITIAL_CHATS);
-  const [activeChatId, setActiveChatId] = useState("chat-two-sum");
+  const [chats, setChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+
+  // Load real sessions from backend database
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingSessions(true);
+
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const headers = token ? { Authorization: "Bearer " + token } : {};
+
+    axios
+      .get("/api/ai/sessions", { headers })
+      .then((res) => {
+        if (!isMounted) return;
+        const sessions = res.data?.data || [];
+        if (sessions.length > 0) {
+          const formatted = sessions.map((s) => {
+            const lastCode = s.messages && s.messages.slice().reverse().find((m) => m.codeSnapshot)?.codeSnapshot;
+            const lang = s.course?.language || initialLanguage || "Python";
+            return {
+              id: s.id,
+              title: s.title || (lang + " Socratic Session"),
+              language: lang,
+              timestamp: s.lastMessageAt
+                ? new Date(s.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "Recently",
+              currentCode: lastCode || CODE_TEMPLATES[lang] || CODE_TEMPLATES.Python,
+              messages: (s.messages || []).map((m) => {
+                const payload = m.aiPayload && typeof m.aiPayload === "object" ? m.aiPayload : {};
+                return {
+                  id: m.id,
+                  role: m.role,
+                  content: m.content,
+                  hintLevel: payload.hintLevel || 1,
+                  lineReference: payload.lineReference || null,
+                  microMcq: payload.microMcq || null,
+                  timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                };
+              }),
+            };
+          });
+
+          if (initialLesson) {
+            const match = formatted.find((c) => c.title === initialLesson);
+            if (match) {
+              setChats(formatted);
+              setActiveChatId(match.id);
+            } else {
+              const starter = createStarterSession(initialLanguage, username, initialLesson);
+              setChats([starter, ...formatted]);
+              setActiveChatId(starter.id);
+            }
+          } else {
+            setChats(formatted);
+            setActiveChatId(formatted[0].id);
+          }
+        } else {
+          const starter = createStarterSession(initialLanguage, username, initialLesson);
+          setChats([starter]);
+          setActiveChatId(starter.id);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load real sessions from DB, starting fresh session:", err.message);
+        const starter = createStarterSession(initialLanguage, username, initialLesson);
+        setChats([starter]);
+        setActiveChatId(starter.id);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingSessions(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialLanguage, initialLesson, username]);
 
   // Active chat session reference
   const activeChat = useMemo(() => {
-    return chats.find((c) => c.id === activeChatId) || chats[0];
-  }, [chats, activeChatId]);
+    return (
+      chats.find((c) => c.id === activeChatId) ||
+      chats[0] ||
+      createStarterSession(initialLanguage, username, initialLesson)
+    );
+  }, [chats, activeChatId, initialLanguage, username, initialLesson]);
 
   // Active code being edited and evaluated alongside prompt
   const [activeCode, setActiveCode] = useState(() => activeChat.currentCode || CODE_TEMPLATES[activeChat.language] || "");
@@ -663,9 +604,11 @@ export default function AITutor({
   // ── Code Execution & Terminal States ──
   const [isRunningCode, setIsRunningCode] = useState(false);
   const [runResult, setRunResult] = useState(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState(null);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [stdinInput, setStdinInput] = useState("");
-  const [activeTerminalTab, setActiveTerminalTab] = useState("output"); // "output" | "stdin"
+  const [activeTerminalTab, setActiveTerminalTab] = useState("output"); // "output" | "stdin" | "autopsy"
   const [terminalCopied, setTerminalCopied] = useState(false);
   const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "code"
 
@@ -706,24 +649,23 @@ export default function AITutor({
 
   // ────────────────────────────────────────────
   //  Action: "+ New Chat"
-  //  Initializes a brand new chat session and prepends to history list
   // ────────────────────────────────────────────
   const handleNewChat = () => {
-    const newId = `chat-${Date.now()}`;
+    const newId = "local-" + Date.now();
     const newChatNumber = chats.length + 1;
     const starterCode = CODE_TEMPLATES[selectedLang] || CODE_TEMPLATES.Python;
 
     const newChat = {
       id: newId,
-      title: `New Socratic Session #${newChatNumber}`,
+      title: "New Socratic Session #" + newChatNumber,
       language: selectedLang,
       timestamp: "Just now",
       currentCode: starterCode,
       messages: [
         {
-          id: `welcome-${Date.now()}`,
+          id: "welcome-" + Date.now(),
           role: "assistant",
-          content: `Hey there, ${username}! 🚀 Brand new Socratic chat session initialized.\n\nI have loaded your **${selectedLang}** code context in the workspace below. Type any question, paste a bug report, or ask for guidance!`,
+          content: "Hey there, " + username + "! 🚀 Brand new Socratic chat session initialized.\n\nI have loaded your **" + selectedLang + "** code context in the workspace below. Type any question, paste a bug report, or ask for guidance!",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           hintLevel: 1,
         },
@@ -738,16 +680,29 @@ export default function AITutor({
   // ────────────────────────────────────────────
   //  Action: Delete a Chat Session
   // ────────────────────────────────────────────
-  const handleDeleteChat = (idToDelete, e) => {
+  const handleDeleteChat = async (idToDelete, e) => {
     e.stopPropagation();
     if (chats.length <= 1) {
       alert("You need at least one active chat session.");
       return;
     }
+
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const headers = token ? { Authorization: "Bearer " + token } : {};
+
     const remaining = chats.filter((c) => c.id !== idToDelete);
     setChats(remaining);
     if (activeChatId === idToDelete) {
       setActiveChatId(remaining[0].id);
+    }
+
+    // Persist deletion in database
+    if (idToDelete && !idToDelete.startsWith("local-")) {
+      try {
+        await axios.delete("/api/ai/sessions/" + idToDelete, { headers });
+      } catch (delErr) {
+        console.warn("Session deletion in DB warning:", delErr.message);
+      }
     }
   };
 
@@ -759,7 +714,7 @@ export default function AITutor({
     if (!textToSend.trim() || isSubmitting) return;
 
     const userMsg = {
-      id: `user-${Date.now()}`,
+      id: "user-" + Date.now(),
       role: "user",
       content: textToSend.trim(),
       attachedCodeLength: activeCode.length,
@@ -780,35 +735,36 @@ export default function AITutor({
     setIsSubmitting(true);
 
     try {
-      // 1. Send Prompt + Current Code to backend AI route
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const headers = token ? { Authorization: "Bearer " + token } : {};
+
+      const payload = {
+        prompt: textToSend.trim(),
+        currentCode: activeCode,
+        language: selectedLang,
+        lesson: activeChat.title,
+        sessionId: activeChat.id && !activeChat.id.startsWith("local-") ? activeChat.id : undefined,
+        history: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+      };
+
       let res;
       try {
-        res = await axios.post(AI_CHAT_ENDPOINT, {
-          prompt: textToSend.trim(),
-          currentCode: activeCode,
-          language: selectedLang,
-          lesson: activeChat.title,
-          history: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
-        });
+        res = await axios.post(AI_CHAT_ENDPOINT, payload, { headers });
       } catch (proxyErr) {
-        console.warn("Proxy post failed, attempting direct backend port 5000...", proxyErr);
-        res = await axios.post(DIRECT_BACKEND_URL, {
-          prompt: textToSend.trim(),
-          currentCode: activeCode,
-          language: selectedLang,
-          lesson: activeChat.title,
-          history: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
-        });
+        console.warn("Proxy post failed, attempting direct backend port 5001...", proxyErr);
+        res = await axios.post(DIRECT_BACKEND_URL, payload, { headers });
       }
 
       const tutorData = res.data?.data || res.data;
+      const returnedSessionId = res.data?.dbSessionId;
+
       const aiReplyText =
         tutorData.message ||
         tutorData.socraticResponse ||
         (typeof tutorData === "string" ? tutorData : "I have inspected your code and prompt.");
 
       const aiMsg = {
-        id: `ai-${Date.now()}`,
+        id: "ai-" + Date.now(),
         role: "assistant",
         content: aiReplyText,
         hintLevel: tutorData.hintLevel || 1,
@@ -818,17 +774,25 @@ export default function AITutor({
       };
 
       setChats((prev) =>
-        prev.map((c) =>
-          c.id === activeChatId
-            ? { ...c, messages: [...updatedMessages, aiMsg] }
-            : c
-        )
+        prev.map((c) => {
+          if (c.id === activeChatId) {
+            return {
+              ...c,
+              id: returnedSessionId || c.id,
+              messages: [...updatedMessages, aiMsg],
+            };
+          }
+          return c;
+        })
       );
+      if (returnedSessionId && activeChatId.startsWith("local-")) {
+        setActiveChatId(returnedSessionId);
+      }
     } catch (err) {
       console.error("AI Tutor send error:", err);
       // Fallback Socratic inquiry
       const fallbackAiMsg = {
-        id: `ai-${Date.now()}`,
+        id: "ai-" + Date.now(),
         role: "assistant",
         content: `💡 **Socratic Guidance & Code Evaluation:**\n\nI reviewed your **${selectedLang}** code (${activeCode.split("\n").length} lines) regarding: *"${textToSend.trim()}"*.\n\nTake a look at how your loop terminates. What is the value of your pointer/index at the final boundary?`,
         microMcq: {
@@ -887,20 +851,31 @@ export default function AITutor({
     setActiveTerminalTab("output");
 
     try {
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const headers = token ? { Authorization: "Bearer " + token } : {};
+
       let res;
       try {
-        res = await axios.post(RUN_CODE_ENDPOINT, {
-          code: activeCode,
-          language: selectedLang,
-          stdin: stdinInput,
-        });
+        res = await axios.post(
+          RUN_CODE_ENDPOINT,
+          {
+            code: activeCode,
+            language: selectedLang,
+            stdin: stdinInput,
+          },
+          { headers }
+        );
       } catch (proxyErr) {
         console.warn("Proxy execution call failed, falling back to direct port 5001...", proxyErr);
-        res = await axios.post(DIRECT_RUN_ENDPOINT, {
-          code: activeCode,
-          language: selectedLang,
-          stdin: stdinInput,
-        });
+        res = await axios.post(
+          DIRECT_RUN_ENDPOINT,
+          {
+            code: activeCode,
+            language: selectedLang,
+            stdin: stdinInput,
+          },
+          { headers }
+        );
       }
 
       const executionData = res.data?.data || res.data;
@@ -921,8 +896,59 @@ export default function AITutor({
     }
   };
 
+  // ────────────────────────────────────────────
+  //  Action: Evaluate Code & Diagnose Bug DNA (JEV Review)
+  // ────────────────────────────────────────────
+  const handleEvaluateCode = async () => {
+    if (isEvaluating || !activeCode.trim()) return;
+    setIsEvaluating(true);
+    setIsTerminalOpen(true);
+    setActiveTerminalTab("autopsy");
+
+    try {
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const headers = token ? { Authorization: "Bearer " + token } : {};
+
+      const payload = {
+        currentCode: activeCode,
+        language: selectedLang,
+        task: activeChat.title,
+        sessionId: activeChat.id && !activeChat.id.startsWith("local-") ? activeChat.id : undefined,
+      };
+
+      let res;
+      try {
+        res = await axios.post(EVALUATE_CODE_ENDPOINT, payload, { headers });
+      } catch (proxyErr) {
+        console.warn("Proxy evaluate call failed, falling back to direct port 5001...", proxyErr);
+        res = await axios.post(DIRECT_EVALUATE_ENDPOINT, payload, { headers });
+      }
+
+      const evalData = res.data?.data || res.data;
+      setEvaluationResult(evalData);
+    } catch (err) {
+      console.error("Code evaluation failed:", err);
+      setEvaluationResult({
+        verdict: "incorrect",
+        confidence: 0.8,
+        summary: err.response?.data?.error || err.message || "Failed to evaluate code.",
+        issues: [
+          {
+            line: 1,
+            severity: "Medium",
+            message: "Unable to complete remote evaluation.",
+            suggestion: "Check network connectivity to backend.",
+          },
+        ],
+      });
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
   const handleClearTerminal = () => {
     setRunResult(null);
+    setEvaluationResult(null);
   };
 
   const handleCopyTerminal = () => {
@@ -1338,6 +1364,31 @@ export default function AITutor({
                   )}
                 </button>
 
+                {/* BUG DNA AUTOPSY BUTTON */}
+                <button
+                  type="button"
+                  onClick={handleEvaluateCode}
+                  disabled={isEvaluating || !activeCode.trim()}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-black flex items-center gap-1.5 transition-all cursor-pointer border-2 ${
+                    isEvaluating
+                      ? "bg-rose-950 text-rose-400 border-rose-600/60 cursor-wait"
+                      : "bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:shadow-[1px_1px_0px_#0F172A] hover:translate-x-[1px] hover:translate-y-[1px]"
+                  }`}
+                  title="Run automated Bug DNA & State Divergence analysis on backend"
+                >
+                  {isEvaluating ? (
+                    <>
+                      <SpinnerIcon className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Diagnosing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🧬</span>
+                      <span>Bug DNA Autopsy</span>
+                    </>
+                  )}
+                </button>
+
                 {/* TERMINAL TOGGLE */}
                 <button
                   type="button"
@@ -1454,6 +1505,25 @@ export default function AITutor({
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                         )}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTerminalTab("autopsy")}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          activeTerminalTab === "autopsy"
+                            ? "bg-slate-800 text-rose-300 shadow-sm"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        <span>🧬</span>
+                        <span>Bug DNA</span>
+                        {evaluationResult && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              evaluationResult.verdict === "correct" ? "bg-emerald-400" : "bg-rose-400"
+                            }`}
+                          />
+                        )}
+                      </button>
                     </div>
 
                     {/* Status badge */}
@@ -1515,7 +1585,132 @@ export default function AITutor({
 
                 {/* Terminal Body */}
                 <div className="flex-1 overflow-y-auto p-3.5 bg-[#050811] dark-scrollbar">
-                  {activeTerminalTab === "stdin" ? (
+                  {activeTerminalTab === "autopsy" ? (
+                    <div className="h-full space-y-3 font-mono text-xs">
+                      {isEvaluating ? (
+                        <div className="flex items-center gap-2.5 text-rose-400 py-6 px-2">
+                          <SpinnerIcon className="w-4 h-4 text-rose-400" />
+                          <span className="text-xs font-mono">
+                            Running JEV Engine & Bug DNA diagnostics on backend...
+                          </span>
+                        </div>
+                      ) : evaluationResult ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 rounded font-black text-[11px] uppercase tracking-wider ${
+                                  evaluationResult.verdict === "correct"
+                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                    : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                                }`}
+                              >
+                                Verdict: {evaluationResult.verdict || "Evaluated"}
+                              </span>
+                              <span className="text-slate-400 text-[11px]">
+                                Confidence: {Math.round((evaluationResult.confidence || 0.85) * 100)}%
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-sans">
+                              Synced with Postgres DB Mistake Records
+                            </span>
+                          </div>
+
+                          {/* Bug DNA Diagnostic Badge */}
+                          {evaluationResult.bugDna && (
+                            <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/80 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="font-black text-rose-300 text-xs">
+                                  🧬 {evaluationResult.bugDna.type}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-rose-900 border border-rose-700 text-rose-200">
+                                  {evaluationResult.bugDna.category} • {evaluationResult.bugDna.severity}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-300 font-sans leading-relaxed">
+                                {evaluationResult.bugDna.description}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Socratic Guidance */}
+                          {evaluationResult.socraticGuidance && (
+                            <div className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-800 text-amber-200 text-xs font-sans leading-relaxed">
+                              💡 <strong>Socratic Guidance:</strong> {evaluationResult.socraticGuidance}
+                            </div>
+                          )}
+
+                          {/* State Divergence Matrix */}
+                          {evaluationResult.stateDivergence && evaluationResult.stateDivergence.length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                                State Divergence Matrix ({evaluationResult.stateDivergence.length} checkpoints):
+                              </span>
+                              <div className="space-y-1">
+                                {evaluationResult.stateDivergence.map((sd, sIdx) => (
+                                  <div key={sIdx} className="p-2 rounded bg-[#090E1A] border border-slate-800 text-[11px] space-y-0.5">
+                                    <div className="flex justify-between font-mono font-bold text-slate-300">
+                                      <span>Step {sd.step}: Var &apos;{sd.variable}&apos;</span>
+                                      <span className="text-rose-400">Expected: {sd.expected} | Actual: {sd.actual}</span>
+                                    </div>
+                                    {sd.explanation && <p className="text-slate-400 font-sans text-[10px]">{sd.explanation}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {evaluationResult.summary && (
+                            <div className="p-2.5 rounded-lg bg-[#070D1A] border border-slate-800 text-slate-300 leading-relaxed font-sans text-xs">
+                              <span className="font-bold text-[#FFDF2B] font-mono mr-1">Summary:</span>
+                              {evaluationResult.summary}
+                            </div>
+                          )}
+
+                          {evaluationResult.issues && evaluationResult.issues.length > 0 ? (
+                            <div className="space-y-2">
+                              <span className="text-[11px] font-black uppercase tracking-wider text-rose-400">
+                                Detected Diagnostic Issues ({evaluationResult.issues.length}):
+                              </span>
+                              {evaluationResult.issues.map((issue, idx) => (
+                                <div
+                                  key={idx}
+                                  className="p-2.5 rounded-lg bg-rose-950/30 border-l-4 border-rose-500 space-y-1 text-slate-200"
+                                >
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-bold text-rose-300">
+                                      {issue.line ? `Line ${issue.line}: ` : ""}
+                                      {issue.message}
+                                    </span>
+                                    <span className="px-1.5 py-0.2 rounded bg-rose-900/60 border border-rose-700 text-[10px] uppercase font-bold text-rose-200">
+                                      {issue.severity || "Medium"}
+                                    </span>
+                                  </div>
+                                  {issue.suggestion && (
+                                    <p className="text-[11px] text-amber-300 font-sans">
+                                      💡 Socratic suggestion: {issue.suggestion}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : !evaluationResult.bugDna && (
+                            <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800 text-emerald-300 text-center">
+                              ✓ No critical bug patterns or runtime logic faults detected!
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-slate-500 py-6 text-xs flex flex-col justify-center items-center h-full text-center">
+                          <span className="text-2xl mb-1">🧬</span>
+                          <span className="font-semibold text-slate-400">Bug DNA Autopsy Diagnostics</span>
+                          <span className="text-[11px] text-slate-600 mt-1">
+                            Click &quot;Bug DNA Autopsy&quot; in the toolbar to run automated divergence and mistake pattern checks.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : activeTerminalTab === "stdin" ? (
                     <div className="h-full flex flex-col">
                       <div className="text-[11px] text-slate-400 mb-1.5 flex items-center justify-between">
                         <span className="font-mono font-bold text-slate-300">Standard Input (stdin):</span>

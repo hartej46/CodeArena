@@ -83,6 +83,18 @@ export async function registerWithEmail(name, email, password) {
 }
 
 /**
+ * 1-Click Instant Demo Login using real backend
+ */
+export async function loginWithDemo() {
+  const response = await axios.post(`${API_BASE}/demo`);
+  const data = response.data?.data || response.data;
+  if (data?.token && data?.user) {
+    setStoredAuth(data.token, data.user);
+  }
+  return data;
+}
+
+/**
  * Get current authenticated user profile
  */
 export async function getMe(token) {

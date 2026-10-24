@@ -63,7 +63,10 @@ function App() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  const navigate = (page) => {
+  const [navParams, setNavParams] = useState(null);
+
+  const navigate = (page, params = null) => {
+    if (params) setNavParams(params);
     setCurrentPage(page);
     window.location.hash = page;
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -107,7 +110,8 @@ function App() {
         username={username}
         user={auth.user}
         onLogout={handleLogout}
-        initialLanguage="Python"
+        initialLanguage={navParams?.language || "Python"}
+        initialLesson={navParams?.lessonTitle || null}
       />
     );
   }

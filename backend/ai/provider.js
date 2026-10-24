@@ -60,6 +60,7 @@ async function callOllama(messages, temperature) {
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(5000),
       body: JSON.stringify({
         model: config.ollamaModel,
         messages: messages.map((m) => ({

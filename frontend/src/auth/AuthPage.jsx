@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { authenticateWithGoogle } from "./authApi";
+import {
+  authenticateWithGoogle,
+  loginWithEmail,
+  registerWithEmail,
+  loginWithDemo,
+} from "./authApi";
 
 // ──────────────────────────────────────────────
 //  INLINE SVG ICONS
@@ -178,6 +183,55 @@ export default function AuthPage({ onLogin }) {
     setErrorMessage("");
   };
 
+  // Email Auth & Demo States
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [emailInput, setEmailInput] = useState("learner@codearena.dev");
+  const [passwordInput, setPasswordInput] = useState("password123");
+  const [nameInput, setNameInput] = useState("CodeArena Learner");
+
+  // 1-Click Instant Demo Login
+  const handleDemoLogin = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+      const result = await loginWithDemo();
+      if (onLogin) onLogin(result.user, result.token);
+    } catch (err) {
+      setErrorMessage(
+        err.response?.data?.error?.message ||
+          err.response?.data?.error ||
+          "Demo login failed. Please ensure backend is running."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Traditional Email Login or Registration
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setErrorMessage("");
+      let result;
+      if (isRegisterMode) {
+        result = await registerWithEmail(nameInput.trim(), emailInput.trim(), passwordInput);
+      } else {
+        result = await loginWithEmail(emailInput.trim(), passwordInput);
+      }
+      if (onLogin) onLogin(result.user, result.token);
+    } catch (err) {
+      setErrorMessage(
+        err.response?.data?.error?.message ||
+          err.response?.data?.error ||
+          "Authentication failed. Please verify your email and password."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen text-[#0F172A] selection:bg-[#FFDF2B] flex items-center justify-center p-4 sm:p-6 lg:p-8"
@@ -329,6 +383,101 @@ export default function AuthPage({ onLogin }) {
                   </>
                 )}
               </button>
+            </div>
+
+            {/* Divider */}
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-[#0F172A]/20" />
+              <span className="flex-shrink mx-3 text-[10px] font-black uppercase text-[#475569] tracking-wider">
+                OR Instant Access
+              </span>
+              <div className="flex-grow border-t border-[#0F172A]/20" />
+            </div>
+
+            {/* 1-Click Instant Demo Login */}
+            <div>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleDemoLogin}
+                className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] font-black text-sm border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] hover:shadow-[2px_2px_0px_#0F172A] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] transition-all cursor-pointer disabled:opacity-60"
+              >
+                <span>⚡ 1-Click Demo Learner Login (Real Backend)</span>
+              </button>
+            </div>
+
+            {/* Traditional Email Sign In / Registration Toggle */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowEmailForm(!showEmailForm)}
+                className="w-full text-center text-xs font-bold text-[#1D4ED8] hover:underline cursor-pointer py-1"
+              >
+                {showEmailForm ? "▲ Hide Email / Password Form" : "▼ Or Sign In / Register with Email & Password"}
+              </button>
+
+              {showEmailForm && (
+                <form onSubmit={handleEmailAuth} className="mt-3 p-4 rounded-xl bg-[#FAF9F0] border-2 border-[#0F172A] space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-[#0F172A]/10">
+                    <span className="text-xs font-black text-[#0F172A]">
+                      {isRegisterMode ? "Create New Account" : "Email Sign In"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsRegisterMode(!isRegisterMode)}
+                      className="text-[11px] font-bold text-[#1D4ED8] underline cursor-pointer"
+                    >
+                      {isRegisterMode ? "Already registered? Login" : "New user? Register"}
+                    </button>
+                  </div>
+
+                  {isRegisterMode && (
+                    <div>
+                      <label className="block text-[11px] font-black text-[#0F172A] mb-1">Full Name</label>
+                      <input
+                        type="text"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="Learner Name"
+                        required
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-white border-2 border-[#0F172A] text-[#0F172A] focus:outline-none"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] font-black text-[#0F172A] mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      placeholder="you@domain.com"
+                      required
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-white border-2 border-[#0F172A] text-[#0F172A] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-black text-[#0F172A] mb-1">Password</label>
+                    <input
+                      type="password"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-white border-2 border-[#0F172A] text-[#0F172A] focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-lg bg-[#0F172A] text-white font-black text-xs hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    {loading ? "Authenticating..." : isRegisterMode ? "Create Account & Login" : "Sign In with Email"}
+                  </button>
+                </form>
+              )}
             </div>
 
             {/* Google OAuth Client ID Configuration Helper */}

@@ -356,12 +356,33 @@ async function listUserChatSessions(userId = null) {
       orderBy: { lastMessageAt: 'desc' },
       include: {
         course: { select: { id: true, title: true, language: true } },
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
         _count: { select: { messages: true } },
       },
     });
   } catch (err) {
     console.warn('[DB] listUserChatSessions error:', err.message);
     return [];
+  }
+}
+
+/**
+ * Deletes a chat session and its associated messages
+ */
+async function deleteChatSession(sessionId, userId = null) {
+  if (!isDbConfigured() || !sessionId) return false;
+  try {
+    const where = { id: sessionId };
+    if (userId) where.userId = userId;
+
+    await prisma.chatMessage.deleteMany({ where: { sessionId } });
+    await prisma.chatSession.deleteMany({ where });
+    return true;
+  } catch (err) {
+    console.warn('[DB] deleteChatSession error:', err.message);
+    return false;
   }
 }
 
@@ -374,4 +395,5 @@ module.exports = {
   saveRoadmap,
   getChatHistory,
   listUserChatSessions,
+  deleteChatSession,
 };

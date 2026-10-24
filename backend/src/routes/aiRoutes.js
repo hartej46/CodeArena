@@ -7,6 +7,26 @@ const aiTutorService = require('../services/aiTutorService');
 const dbStorageService = require('../services/dbStorageService');
 const config = require('../../ai/config');
 
+const prisma = require('../lib/prisma');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../middleware/auth');
+
+function getUserIdFromReq(req) {
+  if (req.body?.userId) return req.body.userId;
+  if (req.query?.userId) return req.query.userId;
+  const authHeader = req.headers?.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      return decoded.id;
+    } catch {
+      // ignore invalid token
+    }
+  }
+  return null;
+}
+
 /**
  * GET /api/ai/health
  * Health check & provider status
@@ -57,11 +77,13 @@ router.post('/chat', async (req, res) => {
       hintLevel: Number(hintLevel) || 1,
     });
 
+    const activeUserId = getUserIdFromReq(req);
+
     // Asynchronously persist chat interaction to database
     let storedSession = null;
     try {
       storedSession = await dbStorageService.saveChatInteraction({
-        userId: req.body.userId,
+        userId: activeUserId,
         sessionId: req.body.sessionId || req.body.chatId,
         userPrompt: prompt,
         assistantResponse: tutorResult,
@@ -97,8 +119,23 @@ router.post('/chat', async (req, res) => {
  */
 router.get('/sessions', async (req, res) => {
   try {
-    const sessions = await dbStorageService.listUserChatSessions(req.query.userId || null);
+    const activeUserId = getUserIdFromReq(req);
+    const sessions = await dbStorageService.listUserChatSessions(activeUserId);
     return res.json({ success: true, data: sessions });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/ai/sessions/:id
+ * Deletes a chat session
+ */
+router.delete('/sessions/:id', async (req, res) => {
+  try {
+    const activeUserId = getUserIdFromReq(req);
+    const success = await dbStorageService.deleteChatSession(req.params.id, activeUserId);
+    return res.json({ success });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -112,6 +149,30 @@ router.get('/history/:sessionId', async (req, res) => {
   try {
     const messages = await dbStorageService.getChatHistory(req.params.sessionId);
     return res.json({ success: true, data: messages });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/ai/lesson-task?title=&language=
+ * Fetches real lesson task requirements and details from PostgreSQL
+ */
+router.get('/lesson-task', async (req, res) => {
+  try {
+    const { title, language } = req.query;
+    if (!title) return res.json({ success: true, lesson: null });
+
+    const lesson = await prisma.lesson.findFirst({
+      where: {
+        title: { equals: title.trim(), mode: 'insensitive' },
+      },
+      include: {
+        course: { select: { title: true, language: true } },
+      },
+    });
+
+    return res.json({ success: true, lesson });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -149,11 +210,13 @@ router.post('/evaluate', async (req, res) => {
       lastOutput,
     });
 
+    const activeUserId = getUserIdFromReq(req) || userId;
+
     // Asynchronously persist submission and mistake patterns
     let storedSubmission = null;
     try {
       storedSubmission = await dbStorageService.saveCodeSubmission({
-        userId,
+        userId: activeUserId,
         sessionId,
         lessonId,
         language,

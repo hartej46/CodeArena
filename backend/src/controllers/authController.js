@@ -73,9 +73,22 @@ async function me(req, res, next) {
   }
 }
 
+/**
+ * POST /api/auth/demo
+ */
+async function demoLogin(req, res, next) {
+  try {
+    const result = await authService.loginDemoUser();
+    res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   googleAuth,
   me,
+  demoLogin,
 };
