@@ -131,7 +131,9 @@ async function getDashboardData(userId, queryCourseId = null) {
         : 0;
 
     activeCourse = {
+      courseId: activeCourseId,
       title: activeEnrollment.course.title,
+      language: activeEnrollment.course.language,
       diagnosticScore: activeEnrollment.diagnosticScore
         ? Number(activeEnrollment.diagnosticScore)
         : null,

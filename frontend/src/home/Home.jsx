@@ -162,10 +162,14 @@ export default function Home({ username = "Aarav", onNavigate, user, onLogout })
     );
   }, [enrolledCourses, selectedCourseId]);
 
-  // Active course progress stats from backend
+  // Active course progress stats from backend or fallback matching selected course
   const activeCourseStats = useMemo(() => {
     const raw = dashboardData?.activeCourse;
-    if (raw) {
+    // Only use raw if it matches our selectedCourseId or if selectedCourseId is not explicitly set yet
+    const isMatchingRaw =
+      raw && (!selectedCourseId || !raw.courseId || raw.courseId === selectedCourseId || (raw.title && raw.title === currentCourse.name));
+
+    if (isMatchingRaw) {
       return {
         title: raw.title || currentCourse.name,
         currentModule: raw.currentFocus || "Core Language Foundations",
@@ -177,17 +181,21 @@ export default function Home({ username = "Aarav", onNavigate, user, onLogout })
     }
     return {
       title: currentCourse.name,
-      currentModule: "Language Fundamentals & Sandbox",
-      diagnosticScore: 70,
+      currentModule: currentCourse.language === "Python" ? "Variables & Data Types" : "Variables & Scope (let/const/var)",
+      diagnosticScore: 75,
       masteredCount: 0,
       totalCount: 20,
-      progress: currentCourse.progress,
+      progress: currentCourse.progress || 0,
     };
-  }, [dashboardData, currentCourse]);
+  }, [dashboardData, currentCourse, selectedCourseId]);
 
-  // Upcoming topics from live backend nextUp array
+  // Upcoming topics from live backend nextUp array matching the selected course
   const upcomingTopics = useMemo(() => {
-    if (dashboardData?.nextUp && dashboardData.nextUp.length > 0) {
+    const raw = dashboardData?.activeCourse;
+    const isMatchingRaw =
+      raw && (!selectedCourseId || !raw.courseId || raw.courseId === selectedCourseId || (raw.title && raw.title === currentCourse.name));
+
+    if (isMatchingRaw && dashboardData?.nextUp && dashboardData.nextUp.length > 0) {
       return dashboardData.nextUp.map((lesson, idx) => ({
         id: lesson.lessonId || `lesson-${idx}`,
         title: lesson.title,
@@ -196,8 +204,22 @@ export default function Home({ username = "Aarav", onNavigate, user, onLogout })
         status: idx === 0 ? "next" : "queued",
       }));
     }
-    return [];
-  }, [dashboardData]);
+
+    // Immediate fallback based on selected course language while network completes
+    if (currentCourse.language?.toLowerCase().includes("python")) {
+      return [
+        { id: "py-1", title: "Variables & Primitive Types", tag: "Core Concept", duration: "15 min", status: "next" },
+        { id: "py-2", title: "Conditionals & Branching", tag: "Core Concept", duration: "15 min", status: "queued" },
+        { id: "py-3", title: "Pure Functions & Local Scope", tag: "Core Concept", duration: "20 min", status: "queued" },
+      ];
+    }
+
+    return [
+      { id: "js-1", title: "Block Scope & Hoisting Nuances", tag: "Core Concept", duration: "15 min", status: "next" },
+      { id: "js-2", title: "Lexical this with Arrow Functions", tag: "Core Concept", duration: "15 min", status: "queued" },
+      { id: "js-3", title: "Nested Destructuring & Defaults", tag: "Core Concept", duration: "15 min", status: "queued" },
+    ];
+  }, [dashboardData, currentCourse, selectedCourseId]);
 
   // Self-Reliance metrics from backend
   const selfReliance = dashboardData?.selfReliance || {
