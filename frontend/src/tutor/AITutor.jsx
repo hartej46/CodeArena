@@ -607,6 +607,36 @@ export default function AITutor({
   const [activeTerminalTab, setActiveTerminalTab] = useState("output"); // "output" | "stdin" | "autopsy"
   const [terminalCopied, setTerminalCopied] = useState(false);
   const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "code"
+  const [reviewFixData, setReviewFixData] = useState(null); // { proposedFix, originalCode }
+
+  const handleRevealAnswer = () => {
+    if (!evaluationResult?.proposedFix) return;
+    setReviewFixData({
+      proposedFix: evaluationResult.proposedFix,
+      originalCode: activeCode,
+    });
+    handleCodeChange(evaluationResult.proposedFix);
+  };
+
+  const handleAcceptFix = () => {
+    if (!reviewFixData) return;
+    handleCodeChange(reviewFixData.proposedFix);
+    setReviewFixData(null);
+    if (evaluationResult) {
+      setEvaluationResult((prev) => ({
+        ...prev,
+        verdict: "correct",
+        bugDna: null,
+        summary: "Proposed fix accepted and applied cleanly to code editor.",
+      }));
+    }
+  };
+
+  const handleRejectFix = () => {
+    if (!reviewFixData) return;
+    handleCodeChange(reviewFixData.originalCode);
+    setReviewFixData(null);
+  };
 
   const messagesEndRef = useRef(null);
   const lineNumbersRef = useRef(null);
@@ -905,6 +935,7 @@ export default function AITutor({
   // ────────────────────────────────────────────
   const handleEvaluateCode = async () => {
     if (isEvaluating || !activeCode.trim()) return;
+    setReviewFixData(null);
     setIsEvaluating(true);
     setIsTerminalOpen(true);
     setActiveTerminalTab("autopsy");
@@ -953,6 +984,7 @@ export default function AITutor({
   const handleClearTerminal = () => {
     setRunResult(null);
     setEvaluationResult(null);
+    setReviewFixData(null);
   };
 
   const handleCopyTerminal = () => {
@@ -1454,6 +1486,37 @@ export default function AITutor({
             </div>
 
             {/* 2. CODE EDITOR BODY (With Line Numbers Gutter & Tab Indent) */}
+            {/* Antigravity IDE-style Inline Proposed Fix Action Bar */}
+            {reviewFixData && (
+              <div className="px-3.5 py-2 bg-gradient-to-r from-amber-950 via-[#0B132B] to-emerald-950 border-b-2 border-[#FFDF2B] flex items-center justify-between gap-3 shrink-0 shadow-lg">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#FFDF2B] animate-pulse shrink-0" />
+                  <span className="text-xs font-mono font-black text-[#FFDF2B] truncate">
+                    ✨ AI Proposed Fix Loaded in Editor
+                  </span>
+                  <span className="hidden md:inline text-[11px] text-slate-300 font-sans truncate">
+                    — Reviewing proposed solution. Click <strong>Accept</strong> to keep, or <strong>Reject</strong> to restore your code.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleAcceptFix}
+                    className="px-3 py-1 rounded-lg text-xs font-mono font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-300 shadow-[2px_2px_0px_#0F172A] cursor-pointer transition-all flex items-center gap-1.5 hover:translate-x-[1px] hover:translate-y-[1px]"
+                  >
+                    <span>✓ Accept Fix</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRejectFix}
+                    className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-700 cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <span>✕ Reject</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 flex min-h-0 bg-[#070B14] relative overflow-hidden">
               {/* Line Numbers Gutter */}
               <div
@@ -1646,6 +1709,62 @@ export default function AITutor({
                           {evaluationResult.socraticGuidance && (
                             <div className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-800 text-amber-200 text-xs font-sans leading-relaxed">
                               💡 <strong>Socratic Guidance:</strong> {evaluationResult.socraticGuidance}
+                            </div>
+                          )}
+
+                          {/* Reveal Answer & Proposed Fix Option (Antigravity IDE Style) */}
+                          {evaluationResult.proposedFix && (
+                            <div className="p-3 rounded-xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-emerald-950/40 border-2 border-amber-500/60 space-y-2">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base">💡</span>
+                                  <div>
+                                    <span className="font-mono font-black text-xs text-amber-300">
+                                      Reveal Answer & Proposed Fix
+                                    </span>
+                                    <p className="text-[10px] text-slate-300 font-sans">
+                                      Review the working fix directly inside your main code editor with Accept/Reject controls.
+                                    </p>
+                                  </div>
+                                </div>
+                                {!reviewFixData ? (
+                                  <button
+                                    type="button"
+                                    onClick={handleRevealAnswer}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-mono font-black bg-[#FFDF2B] hover:bg-[#FACC15] text-[#0F172A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] cursor-pointer transition-all flex items-center justify-center gap-1.5 hover:translate-x-[1px] hover:translate-y-[1px] shrink-0"
+                                  >
+                                    <span>👁️ Reveal in Main Code</span>
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={handleAcceptFix}
+                                      className="px-2.5 py-1.5 rounded-lg text-xs font-mono font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-400 shadow-[1px_1px_0px_#000] cursor-pointer transition-all flex items-center gap-1"
+                                    >
+                                      <span>✓ Accept Fix</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleRejectFix}
+                                      className="px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-rose-900 hover:bg-rose-800 text-rose-200 border border-rose-700 cursor-pointer transition-all flex items-center gap-1"
+                                    >
+                                      <span>✕ Reject</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {reviewFixData && (
+                                <div className="pt-2 border-t border-slate-800/80 space-y-1">
+                                  <div className="flex items-center justify-between text-[10px] font-mono">
+                                    <span className="text-slate-400">Target Code Solution:</span>
+                                    <span className="text-emerald-400 font-bold">Preview active in main editor ↑</span>
+                                  </div>
+                                  <pre className="p-2.5 rounded bg-[#050811] border border-slate-800 text-emerald-300 font-mono text-xs overflow-x-auto max-h-32 dark-scrollbar">
+                                    {evaluationResult.proposedFix}
+                                  </pre>
+                                </div>
+                              )}
                             </div>
                           )}
 

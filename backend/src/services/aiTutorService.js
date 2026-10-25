@@ -83,6 +83,10 @@ ${numbered}
 ${memoryContext}
 
 ## SOCRATIC TEACHING GUARDRAILS & MEMORY RETENTION:
+0. **DIRECT CONVERSATIONAL RELEVANCE (TOP PRIORITY)**:
+   - Always respond directly to the student's actual prompt, question, or inquiry.
+   - If the student asks for an explanation, analogy, conceptual breakdown, or learning advice (e.g. "I want to learn python from scratch", "explain recursion with an analogy", "what is time complexity?", "how do functions work?"), answer with an intuitive, friendly explanation and real-world analogy first!
+   - Only focus strictly on editor code lines if the student is writing code, asking about a bug, or asking for code feedback. Never ignore the student's question to comment on an unrelated line.
 1. **CONVERSATION CONTINUITY (MANDATORY)**:
    - You have access to the student's previous 2-3 prompts above in CONVERSATION MEMORY.
    - Build directly upon the concepts, bugs, or questions discussed in those previous turns.
@@ -159,8 +163,10 @@ ${lastOutput || '(none)'}
 3. Generate a **State Divergence Trace**:
    - Show 1 to 3 steps where the program state diverged from expected values (e.g. variable x expected 5 but became 4).
 4. Provide **Socratic Guidance**:
-   - A single guiding inquiry prompting the student to correct the divergent step WITHOUT giving away the full solution code.
-5. Provide **Feedback**: Exactly two constructive, encouraging sentences suitable for the learning chat.
+   - A single guiding inquiry prompting the student to correct the divergent step.
+5. Provide **Proposed Fix (MANDATORY when incorrect)**:
+   - Complete, working, corrected code snippet for the user to preview, accept, or reject.
+6. Provide **Feedback**: Exactly two constructive, encouraging sentences suitable for the learning chat.
 
 ## OUTPUT FORMAT (STRICT):
 Respond with ONLY a single, valid JSON object. No markdown fences.
@@ -173,6 +179,7 @@ Respond with ONLY a single, valid JSON object. No markdown fences.
     "description": "Loop terminates prematurely before visiting the final element.",
     "severity": "error"
   },
+  "proposedFix": "complete corrected code",
   "stateDivergence": [
     {
       "step": 1,
@@ -249,11 +256,13 @@ function sanitizeChatOutput(parsed, rawReply) {
   }
 
   // Graceful fallback
+  const fallbackMessage =
+    typeof rawReply === 'string' && rawReply.trim()
+      ? rawReply.trim()
+      : "I'm looking closely at what you asked! Could you tell me a little more about what you'd like to explore next?";
+
   return {
-    message:
-      typeof rawReply === 'string' && rawReply.trim()
-        ? rawReply.trim()
-        : "I'm looking at your code. What do you expect to happen on the line where execution pauses?",
+    message: fallbackMessage,
     hintLevel: 1,
     lineReference: null,
     microMcq: null,
@@ -313,6 +322,7 @@ function sanitizeEvaluationOutput(parsed) {
           : verdict === 'correct'
           ? 'Great job solving this challenge!'
           : 'Trace through the first failed case step-by-step: what does the state hold before the loop exits?',
+      proposedFix: parsed.proposedFix || parsed.fixed_code || parsed.suggested_code || null,
       feedback:
         typeof parsed.feedback === 'string' && parsed.feedback.trim()
           ? parsed.feedback.trim()
@@ -411,6 +421,21 @@ function checkFastSyntax(code, language) {
       const line = lineMatch ? parseInt(lineMatch[1], 10) : 1;
       const desc = match ? match[1].trim() : 'Syntax compilation error.';
 
+      let proposedFix = code;
+      const lines = code.split('\n');
+      if (line <= lines.length) {
+        let targetLine = lines[line - 1];
+        if (desc.includes("'(' was never closed") || desc.includes("missing )")) {
+          targetLine += ')';
+        } else if (desc.includes("unterminated string literal")) {
+          targetLine += '"';
+        } else if (desc.includes("expected ':'")) {
+          targetLine += ':';
+        }
+        lines[line - 1] = targetLine;
+        proposedFix = lines.join('\n');
+      }
+
       return {
         verdict: 'incorrect',
         bugDna: {
@@ -419,6 +444,7 @@ function checkFastSyntax(code, language) {
           description: `Line ${line}: SyntaxError - ${desc}`,
           severity: 'error',
         },
+        proposedFix,
         stateDivergence: [
           {
             step: 1,
